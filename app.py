@@ -13,13 +13,9 @@ st.set_page_config(page_title="IPL 2026 Fantasy Dashboard", layout="wide")
 @st.cache_data
 def load_data():
     try:
-        df = pd.read_json("master.json")
-        return df
-    except FileNotFoundError:
-        st.error("❌ master.json not found. Run data update workflow.")
-        return pd.DataFrame()
+        return pd.read_json("master.json")
     except Exception as e:
-        st.error("❌ Error loading master.json")
+        st.error("Error loading master.json")
         st.exception(e)
         return pd.DataFrame()
 
@@ -29,11 +25,8 @@ def load_squads():
     try:
         with open("squads.json") as f:
             return json.load(f)
-    except FileNotFoundError:
-        st.error("❌ squads.json not found.")
-        return {}
     except Exception as e:
-        st.error("❌ Error loading squads.json")
+        st.error("Error loading squads.json")
         st.exception(e)
         return {}
 
@@ -42,62 +35,78 @@ df = load_data()
 SQUADS = load_squads()
 
 # ─────────────────────────────────────────────
-# UI HEADER
+# HEADER
 # ─────────────────────────────────────────────
 st.title("🏏 IPL 2026 Fantasy Dashboard")
 
-# Refresh button
-if st.button("🔄 Refresh Data"):
+if st.button("🔄 Refresh"):
     st.cache_data.clear()
     st.rerun()
 
-# Stop if no data
-if df.empty or not SQUADS:
-    st.warning("No data available. Check files or run update.")
+if df.empty:
+    st.warning("No data found. Run update workflow.")
     st.stop()
 
 # ─────────────────────────────────────────────
 # TABS
 # ─────────────────────────────────────────────
-tab1, tab2, tab3 = st.tabs(["🏆 Leaderboard", "📊 Players", "🏏 Teams"])
+tab1, tab2, tab3, tab4 = st.tabs([
+    "🏆 Leaderboard",
+    "📊 Players",
+    "🏏 Teams",
+    "🚫 Unsold"
+])
 
 # ─────────────────────────────────────────────
-# 🏆 Leaderboard
+# 🏆 LEADERBOARD
 # ─────────────────────────────────────────────
 with tab1:
-    st.subheader("Team Standings")
+    st.markdown("## 🏆 Fantasy League Standings")
 
     team_df = (
-        df.groupby("team")["impact"]
+        df[df["team"] != "Unsold"]
+        .groupby("team")["impact"]
         .sum()
         .sort_values(ascending=False)
         .reset_index()
     )
 
-    st.dataframe(team_df, use_container_width=True)
-    st.bar_chart(team_df.set_index("team"))
+    team_df["Rank"] = team_df.index + 1
+
+    top_score = team_df.iloc[0]["impact"]
+    team_df["Gap"] = (top_score - team_df["impact"]).round(2)
+
+    display = team_df[["Rank", "team", "impact", "Gap"]]
+    display.columns = ["Rank", "Team", "Points", "Gap"]
+
+    st.dataframe(display, width="stretch", hide_index=True)
 
 # ─────────────────────────────────────────────
-# 📊 Players
+# 📊 PLAYERS
 # ─────────────────────────────────────────────
 with tab2:
-    st.subheader("Player Performance")
+    st.markdown("## 📊 Player Performance")
 
-    search = st.text_input("🔍 Search player")
+    top = df.sort_values(by="impact", ascending=False).iloc[0]
+    st.subheader(f"🔥 MVP Leader: {top['player']} — {top['impact']:.2f} pts")
 
-    filtered = (
-        df[df["player"].str.contains(search, case=False)]
-        if search
-        else df
-    )
+    search = st.text_input("Search player")
 
-    st.dataframe(filtered.sort_values(by="impact", ascending=False), use_container_width=True)
+    filtered = df[df["player"].str.contains(search, case=False)] if search else df
+
+    filtered = filtered.sort_values(by="impact", ascending=False).reset_index(drop=True)
+    filtered["Rank"] = filtered.index + 1
+
+    display = filtered[["Rank", "player", "team", "impact"]]
+    display.columns = ["Rank", "Player", "Team", "Points"]
+
+    st.dataframe(display, width="stretch")
 
 # ─────────────────────────────────────────────
-# 🏏 Teams
+# 🏏 TEAMS
 # ─────────────────────────────────────────────
 with tab3:
-    st.subheader("Team Breakdown")
+    st.markdown("## 🏏 Team Breakdown")
 
     team = st.selectbox("Select Team", list(SQUADS.keys()))
     players = SQUADS[team]
@@ -107,14 +116,32 @@ with tab3:
         match = df[df["player"].str.contains(p, case=False)]
         pts = match.iloc[0]["impact"] if not match.empty else 0
 
-        rows.append({
-            "Player": p,
-            "Points": pts
-        })
+        rows.append({"Player": p, "Points": pts})
 
     team_df = pd.DataFrame(rows).sort_values(by="Points", ascending=False)
 
-    st.dataframe(team_df, use_container_width=True)
+    st.dataframe(team_df, width="stretch")
+    st.metric("Total Points", int(team_df["Points"].sum()))
 
-    total_points = int(team_df["Points"].sum())
-    st.metric("Total Team Points", total_points)
+# ─────────────────────────────────────────────
+# 🚫 UNSOLD
+# ─────────────────────────────────────────────
+with tab4:
+    st.markdown("## 🚫 Unsold Players")
+
+    unsold_df = df[df["team"] == "Unsold"].copy()
+
+    search_unsold = st.text_input("Search Unsold Players")
+
+    if search_unsold:
+        unsold_df = unsold_df[
+            unsold_df["player"].str.contains(search_unsold, case=False)
+        ]
+
+    unsold_df = unsold_df.sort_values(by="impact", ascending=False).reset_index(drop=True)
+    unsold_df["Rank"] = unsold_df.index + 1
+
+    display_unsold = unsold_df[["Rank", "player", "impact"]]
+    display_unsold.columns = ["Rank", "Player", "Points"]
+
+    st.dataframe(display_unsold, width="stretch")
