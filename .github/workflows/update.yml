@@ -1,0 +1,33 @@
+name: Update Data
+
+on:
+  workflow_dispatch:   # manual run button
+  schedule:
+    - cron: "0 19 * * *"   # 12:30 AM IST
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v3
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install pandas openpyxl
+
+      - name: Run data processing
+        run: python process_data.py
+
+      - name: Commit updated files
+        run: |
+          git config user.name "github-actions"
+          git config user.email "actions@github.com"
+          git add mvp.json master.json
+          git commit -m "Update data" || echo "No changes"
+          git push
