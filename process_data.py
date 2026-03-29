@@ -20,11 +20,7 @@ def find_team(name):
 
     n = name.lower().strip()
 
-    if n in PLAYER_TO_TEAM:
-        return PLAYER_TO_TEAM[n]
-
-    match = difflib.get_close_matches(n, PLAYER_TO_TEAM.keys(), n=1, cutoff=0.9)
-    return PLAYER_TO_TEAM[match[0]] if match else "Unsold"
+    return PLAYER_TO_TEAM.get(n, "Unsold")
 
 # ─────────────────────────────────────────────
 # READ EXCEL
