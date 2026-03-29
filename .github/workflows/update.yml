@@ -1,9 +1,7 @@
 name: Update Data
 
 on:
-  workflow_dispatch:   # manual run button
-  schedule:
-    - cron: "0 19 * * *"   # 12:30 AM IST
+  workflow_dispatch:   # manual run only
 
 jobs:
   update:
