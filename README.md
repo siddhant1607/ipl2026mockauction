@@ -74,16 +74,17 @@ All administrative tabs are protected by an `admin_password`. To configure your 
 ## 🛠️ Data Management Workflow
 
 1.  **Mock Auction**: Use the **Edit Squads** tab to add players to teams as they are sold. 
-2.  **Live Updates**: As the IPL season progresses, download the latest `MVP.xlsx` (with "Player" and "Total Impact" columns) and upload it to the **Update Data** tab.
-
-![IPL Dashboard Workflow](assets/img1.png)
-
+2.  **Live Updates**: As the IPL season progresses, update the stats by creating a new `MVP.xlsx` file and uploading it to the **Update Data** tab.
+    *   Find an MVP or fantasy points table (e.g., ESPNCricinfo) and copy the table data.
+    ![Copying Data](assets/img2.png)
+    *   Paste it into an empty Excel file, ensuring it has at least the **Player** and **Total Impact** columns.
+    ![Pasting to Excel](assets/img3.png)
+    *   Save it as `MVP.xlsx` and upload it to the dashboard.
+    ![Dashboard Upload](assets/img1.png)
 
 3.  **Persistence Sync**: 
-    - **Neon Mode**: The app automatically handles saving every change to your cloud database. To keep your GitHub repository in sync, you can occasionally copy the JSON from the **👥 Edit Squads** and **⭐ Playing XIs** tabs and paste it into your local `squads.json` and `lineups.json` files.
-    - **GitHub Only Mode**: Since the Streamlit server resets periodically, you MUST manually copy the JSON text from the dashboard back into your GitHub repository to prevent data loss.
-
-![Syncing Data back to GitHub](assets/img2.png)
+    - **Neon Mode**: The app automatically handles saving every change to your cloud database. To keep your GitHub repository in sync, you can occasionally download the JSON from the dashboard (using the new 📥 Download buttons) and replace your local `squads.json`, `lineups.json`, `master.json`, and `mvp.json` files.
+    - **GitHub Only Mode**: Since the Streamlit server resets periodically, you MUST manually download the JSON files from the dashboard and push them back into your GitHub repository to prevent data loss.
 
 ---
 

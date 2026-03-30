@@ -995,6 +995,25 @@ with tab7:
         </div>
         """, unsafe_allow_html=True)
 
+        with st.expander("ℹ️ How to create MVP.xlsx"):
+            st.markdown("""
+            1. Go to the [ESPNCricinfo MVP Page](https://www.espncricinfo.com/series/ipl-2026-1510719/most-valuable-players).
+            2. Copy the MVP table starting from the headers down to the required players.
+            """)
+            try:
+                st.image("assets/img2.png", caption="Copying from ESPNCricinfo table")
+            except Exception:
+                pass
+            
+            st.markdown("""
+            3. Paste it carefully into an empty Excel file so that it has the **Player** and **Total Impact** columns.
+            4. Save it as `MVP.xlsx`.
+            """)
+            try:
+                st.image("assets/img3.png", caption="Pasting into Excel")
+            except Exception:
+                pass
+
     elif upd_pwd != correct_pwd:
         st.error("❌ Incorrect password")
 
