@@ -718,13 +718,40 @@ with tab4:
             squad_options = SQUADS[edit_team]
             current_xi = lineups.get(edit_team, [])
             xi_size = st.radio("Lineup size", [11, 12, 13], horizontal=True, key="xi_size_radio")
-
-            selected_xi = st.multiselect(
-                f"Select {xi_size} players for {edit_team}",
-                options=squad_options,
-                default=[p for p in current_xi if p in squad_options],
-                key="xi_multiselect"
-            )
+            
+            st.markdown(f"<div style='margin-bottom:8px;font-weight:600;color:#e2e8f0;'>Select players for {edit_team}</div>", unsafe_allow_html=True)
+            
+            player_data = []
+            for p in squad_options:
+                match = df[df["player"].str.contains(p, case=False, na=False)]
+                pts = match.iloc[0]["impact"] if not match.empty else 0.0
+                player_data.append({"name": p, "pts": pts})
+            
+            # Sort players by points descending for convenience
+            player_data.sort(key=lambda x: x["pts"], reverse=True)
+            
+            selected_xi = []
+            selected_pts = 0.0
+            
+            # Show in 2 columns
+            chk_cols = st.columns(2)
+            for idx, item in enumerate(player_data):
+                pname = item["name"]
+                pts = item["pts"]
+                is_default = (pname in current_xi)
+                with chk_cols[idx % 2]:
+                    # Using a checkbox string that formats the player and points safely
+                    if st.checkbox(f"{pname} • {pts:.1f} pts", value=is_default, key=f"chk_{edit_team}_{pname}"):
+                        selected_xi.append(pname)
+                        selected_pts += pts
+            
+            # Display real-time total
+            st.markdown(f"""
+            <div style="background:rgba(99,102,241,0.1); border:1px solid rgba(99,102,241,0.3); border-radius:8px; padding:12px 16px; margin: 16px 0;">
+                <span style="color:#cbd5e1;font-size:0.9rem">Current Selection Total:</span> 
+                <span style="color:#60a5fa;font-size:1.1rem;font-weight:700;margin-left:8px">{selected_pts:.1f} pts</span>
+            </div>
+            """, unsafe_allow_html=True)
 
             if len(selected_xi) > xi_size:
                 st.warning(f"⚠️ You have selected {len(selected_xi)} players — max is {xi_size}")
