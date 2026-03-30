@@ -10,7 +10,7 @@ from sqlalchemy import text
 # CONFIG
 # ─────────────────────────────────────────────
 st.set_page_config(
-    page_title="IPL 2026 Fantasy Dashboard",
+    page_title="IPL 2026 Mock Auction Dashboard",
     layout="wide",
     page_icon="🏏"
 )
