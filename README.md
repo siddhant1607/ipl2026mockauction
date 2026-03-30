@@ -80,7 +80,6 @@ All administrative tabs are protected by an `admin_password`. To configure your 
     *   Paste it into an empty Excel file, ensuring it has at least the **Player** and **Total Impact** columns.
     ![Pasting to Excel](assets/img3.png)
     *   Save it as `MVP.xlsx` and upload it to the dashboard.
-    ![Dashboard Upload](assets/img1.png)
 
 3.  **Persistence Sync**: 
     - **Neon Mode**: The app automatically handles saving every change to your cloud database. To keep your GitHub repository in sync, you can occasionally download the JSON from the dashboard (using the new 📥 Download buttons) and replace your local `squads.json`, `lineups.json`, `master.json`, and `mvp.json` files.
