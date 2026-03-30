@@ -559,6 +559,16 @@ def save_lineups(lineups: dict):
         pass
 
 
+def clear_lineup_callback(team_name, players):
+    """Callback to safely clear session state for a team's lineup."""
+    if "ordered_lineups" in st.session_state:
+        st.session_state.ordered_lineups[team_name] = []
+    for p in players:
+        k = f"chk_{team_name}_{p}"
+        if k in st.session_state:
+            st.session_state[k] = False
+
+
 def process_excel(file_bytes: bytes, squads: dict) -> tuple[list, list]:
     """Process uploaded Excel bytes → returns (mvp_rows, unmatched_players)."""
     PLAYER_TO_TEAM = {
@@ -624,7 +634,7 @@ with col_r2:
 # ─────────────────────────────────────────────
 # TABS
 # ─────────────────────────────────────────────
-tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8 = st.tabs([
+tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8, tab9 = st.tabs([
     "🏆 Leaderboard",
     "📊 Players",
     "🏏 Teams",
@@ -633,6 +643,7 @@ tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8 = st.tabs([
     "🚫 Unsold",
     "🔄 Update Data",
     "👥 Edit Squads",
+    "✏️ Edit Lineups",
 ])
 
 # ─────────────────────────────────────────────
@@ -792,84 +803,12 @@ with tab4:
 
     lineups = load_lineups()
 
-    # ── Edit Lineup (password-protected) ──
-    with st.expander("✏️ Edit Lineup", expanded=False):
-        pwd = st.text_input("Enter admin password", type="password", key="xi_pwd")
-        correct_pwd = st.secrets.get("admin_password")
-        if pwd == correct_pwd:
-            st.success("✅ Access granted — editing mode enabled")
-            edit_team = st.selectbox(
-                "Team to edit",
-                list(SQUADS.keys()),
-                format_func=lambda t: f"{t} — {TEAM_NAMES.get(t, t)}",
-                key="edit_team_sel"
-            )
-            squad_options = SQUADS[edit_team]
-            current_xi = lineups.get(edit_team, [])
-            xi_size = st.radio("Lineup size", [11, 12, 13], horizontal=True, key="xi_size_radio")
-            
-            st.markdown(f"<div style='margin-bottom:8px;font-weight:600;color:var(--text-color);'>Select players for {edit_team}</div>", unsafe_allow_html=True)
-            
-            player_data = []
-            for p in squad_options:
-                match = df[df["player"].str.contains(p, case=False, na=False)]
-                pts = match.iloc[0]["impact"] if not match.empty else 0.0
-                player_data.append({"name": p, "pts": pts})
-            
-            # Sort players by points descending for convenience
-            player_data.sort(key=lambda x: x["pts"], reverse=True)
-            
-            selected_xi = []
-            selected_pts = 0.0
-            
-            # Show in 2 columns
-            chk_cols = st.columns(2)
-            for idx, item in enumerate(player_data):
-                pname = item["name"]
-                pts = item["pts"]
-                is_default = (pname in current_xi)
-                with chk_cols[idx % 2]:
-                    # Using a checkbox string that formats the player and points safely
-                    if st.checkbox(f"{pname} • {pts:.1f} pts", value=is_default, key=f"chk_{edit_team}_{pname}"):
-                        selected_xi.append(pname)
-                        selected_pts += pts
-            
-            # Display real-time total
-            st.markdown(f"""
-            <div style="background:rgba(99,102,241,0.1); border:1px solid rgba(99,102,241,0.3); border-radius:8px; padding:12px 16px; margin: 16px 0;">
-                <span style="color:var(--text-color);font-size:0.9rem">Current Selection Total:</span> 
-                <span style="color:#60a5fa;font-size:1.1rem;font-weight:700;margin-left:8px">{selected_pts:.1f} pts</span>
-            </div>
-            """, unsafe_allow_html=True)
-
-            if len(selected_xi) > xi_size:
-                st.warning(f"⚠️ You have selected {len(selected_xi)} players — max is {xi_size}")
-            elif len(selected_xi) < xi_size:
-                st.info(f"ℹ️ Select {xi_size - len(selected_xi)} more player(s)")
-            else:
-                if st.button(f"💾 Save {edit_team} Playing {xi_size}", key="save_xi_btn"):
-                    lineups[edit_team] = selected_xi
-                    save_lineups(lineups)
-                    st.success(f"✅ {edit_team} lineup saved!")
-                    st.rerun()
-            with st.container():
-                st.markdown("<div style='height:12px'></div>", unsafe_allow_html=True)
-                st.download_button(
-                    label="📥 Download lineups.json",
-                    data=json.dumps(lineups, indent=2),
-                    file_name="lineups.json",
-                    mime="application/json",
-                    key="dl_lineups_btn"
-                )
-        elif pwd:
-            st.error("❌ Incorrect password")
-
     # ── Display all team lineups ──
     teams_with_xi = [t for t in SQUADS if t in lineups and lineups[t]]
     teams_without = [t for t in SQUADS if t not in lineups or not lineups[t]]
 
     if not teams_with_xi:
-        st.info("No lineups set yet. Use **Edit Lineup** above to add your first playing XI.")
+        st.info("No lineups set yet. Use the **✏️ Edit Lineups** tab to add your first playing XI.")
     else:
         cols_per_row = 2
         team_list = list(SQUADS.keys())
@@ -888,12 +827,12 @@ with tab4:
                     xi_rows_html = ""
 
                     if xi:
-                        for p in xi:
+                        for idx, p in enumerate(xi):
                             match = df[df["player"].str.contains(p, case=False, na=False)]
                             pts = match.iloc[0]["impact"] if not match.empty else 0.0
                             xi_total += pts
                             pts_color = c["accent"] if pts > 0 else ("#ef4444" if pts < 0 else "#94a3b8")
-                            xi_rows_html += f'<div class="lineup-player"><span style="color:var(--text-color);">{p}</span><span style="font-weight:700;color:{pts_color}">{pts:.1f}</span></div>'
+                            xi_rows_html += f'<div class="lineup-player"><span style="color:var(--text-color);"><b style="color:{c["accent"]};margin-right:8px;">#{idx+1}</b> {p}</span><span style="font-weight:700;color:{pts_color}">{pts:.1f}</span></div>'
 
                         xi_rows_html += f'<div class="lineup-total" style="border-top:1px solid {c["accent"]}44;margin-top:6px;"><span style="color:var(--text-color);">Total ({len(xi)})</span><span style="font-weight:700;color:{c["accent"]}">{xi_total:.1f} pts</span></div>'
                     else:
@@ -1237,3 +1176,143 @@ with tab8:
             mime="application/json",
             key="dl_squads_btn"
         )
+
+# ─────────────────────────────────────────────
+# ✏️ EDIT LINEUPS
+# ─────────────────────────────────────────────
+with tab9:
+    st.markdown("<div class='section-title'>✏️ Edit Playing Lineups</div>", unsafe_allow_html=True)
+    st.markdown("<div class='section-sub'>Select players and set batting order for each team</div>", unsafe_allow_html=True)
+
+    lineups = load_lineups()
+
+    # ── Admin password gate ──
+    pwd = st.text_input("Enter admin password", type="password", key="xi_pwd")
+    correct_pwd = st.secrets.get("admin_password")
+    
+    if not pwd:
+        st.info("Enter admin password to enable the lineup editor.")
+    elif pwd != correct_pwd:
+        st.error("❌ Incorrect password")
+    else:
+        st.success("✅ Access granted — editing mode enabled")
+        edit_team = st.selectbox(
+            "Team to edit",
+            list(SQUADS.keys()),
+            format_func=lambda t: f"{t} — {TEAM_NAMES.get(t, t)}",
+            key="edit_team_sel"
+        )
+        squad_options = SQUADS[edit_team]
+        current_xi = lineups.get(edit_team, [])
+        xi_size = 13  # Max limit
+        
+        # Initialize session state for ordered lineups if not present
+        if "ordered_lineups" not in st.session_state:
+            st.session_state.ordered_lineups = {}
+        if edit_team not in st.session_state.ordered_lineups:
+            # Sync with pre-saved lineup for this team
+            st.session_state.ordered_lineups[edit_team] = lineups.get(edit_team, [])
+
+        # Get current ordered list from state
+        current_ordered_xi = st.session_state.ordered_lineups[edit_team]
+
+        # Ensure current_ordered_xi does not exceed max size (trim if needed)
+        if len(current_ordered_xi) > xi_size:
+            current_ordered_xi = current_ordered_xi[:xi_size]
+            st.session_state.ordered_lineups[edit_team] = current_ordered_xi
+            st.warning(f"⚠️ Pre-saved lineup was trimmed to {xi_size} to match current selection limit.")
+
+        # Selection Grid
+        st.markdown(f"<div style='margin-bottom:8px;font-weight:600;color:#94a3b8;'>Select players for {edit_team} (Batting order matches click order)</div>", unsafe_allow_html=True)
+        
+        player_data = []
+        for p in squad_options:
+            match = df[df["player"].str.contains(p, case=False, na=False)]
+            pts = match.iloc[0]["impact"] if not match.empty else 0.0
+            player_data.append({"name": p, "pts": pts})
+        
+        # Sort players by points descending for convenience
+        player_data.sort(key=lambda x: x["pts"], reverse=True)
+        
+        chk_cols = st.columns(2)
+        for idx, item in enumerate(player_data):
+            pname = item["name"]
+            pts = item["pts"]
+            is_selected = pname in current_ordered_xi
+            
+            with chk_cols[idx % 2]:
+                # We check the box if they are in the ordered list
+                val = st.checkbox(f"{pname} • {pts:.1f} pts", value=is_selected, key=f"chk_{edit_team}_{pname}")
+                
+                # Detect changes and update the ordered list
+                if val and not is_selected:
+                    if len(current_ordered_xi) < xi_size:
+                        current_ordered_xi.append(pname)
+                        st.session_state.ordered_lineups[edit_team] = current_ordered_xi
+                        st.rerun()
+                    else:
+                        st.error(f"⚠️ Cannot select more than {xi_size} players.")
+                elif not val and is_selected:
+                    current_ordered_xi.remove(pname)
+                    st.session_state.ordered_lineups[edit_team] = current_ordered_xi
+                    st.rerun()
+
+        selected_xi = current_ordered_xi
+
+        # Live Preview of Order
+        if selected_xi:
+            st.markdown("<div style='margin-top:16px; margin-bottom:8px; font-weight:600; color:#94a3b8;'>Live Batting Order Preview:</div>", unsafe_allow_html=True)
+            preview_html = ""
+            selected_pts = 0.0
+            for idx, pname in enumerate(selected_xi):
+                # Find points for this player
+                p_pts = next((p["pts"] for p in player_data if p["name"] == pname), 0.0)
+                selected_pts += p_pts
+                pts_color = "#60a5fa" if p_pts > 0 else ("#ef4444" if p_pts < 0 else "#94a3b8")
+                preview_html += f"""
+                <div style="display:flex; justify-content:space-between; align-items:center; background:rgba(255,255,255,0.05); padding:6px 12px; border-radius:6px; margin-bottom:4px; border:1px solid rgba(255,255,255,0.1);">
+                    <span style="color:#e2e8f0; font-size:0.85rem;"><b style="color:#6366f1; margin-right:8px;">#{idx+1}</b> {pname}</span>
+                    <span style="color:{pts_color}; font-weight:700; font-size:0.85rem;">{p_pts:.1f} pts</span>
+                </div>
+                """
+            st.markdown(preview_html, unsafe_allow_html=True)
+            
+            # Display real-time total
+            st.markdown(f"""
+            <div style="background:rgba(99,102,241,0.1); border:1px solid rgba(99,102,241,0.3); border-radius:8px; padding:12px 16px; margin: 16px 0;">
+                <span style="color:#94a3b8; font-size:0.9rem">Current Selection Total:</span> 
+                <span style="color:#60a5fa; font-size:1.1rem; font-weight:700; margin-left:8px">{selected_pts:.1f} pts</span>
+            </div>
+            """, unsafe_allow_html=True)
+        else:
+            selected_pts = 0.0
+
+        if len(selected_xi) > xi_size:
+            st.warning(f"⚠️ You have selected {len(selected_xi)} players — absolute max is {xi_size}")
+        else:
+            col_btn1, col_btn2 = st.columns([1, 1])
+            with col_btn1:
+                if st.button(f"💾 Save {edit_team} Lineup ({len(selected_xi)})", key="save_xi_btn", use_container_width=True):
+                    lineups[edit_team] = selected_xi
+                    save_lineups(lineups)
+                    # Also update session state so preview is consistent
+                    st.session_state.ordered_lineups[edit_team] = selected_xi
+                    st.success(f"✅ {edit_team} lineup saved!")
+                    st.rerun()
+            with col_btn2:
+                st.button(
+                    "🧹 Clear Lineup",
+                    key="clear_xi_btn",
+                    on_click=clear_lineup_callback,
+                    args=(edit_team, squad_options),
+                    use_container_width=True
+                )
+        with st.container():
+            st.markdown("<div style='height:12px'></div>", unsafe_allow_html=True)
+            st.download_button(
+                label="📥 Download lineups.json",
+                data=json.dumps(lineups, indent=2),
+                file_name="lineups.json",
+                mime="application/json",
+                key="dl_lineups_btn"
+            )
