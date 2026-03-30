@@ -520,8 +520,8 @@ with col_h2:
     st.markdown("""
     <div class="page-header">
         <div>
-            <h1>🏏 IPL 2026 Fantasy Dashboard</h1>
-            <p>Mock Auction • Fantasy Points Tracker</p>
+            <h1>🏏 IPL 2026 Mock Auction Dashboard</h1>
+            <p>IPL 2026 Mock Auction • QCC Live</p>
         </div>
     </div>
     """, unsafe_allow_html=True)
@@ -535,7 +535,7 @@ with col_r2:
 # ─────────────────────────────────────────────
 # TABS
 # ─────────────────────────────────────────────
-tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs([
+tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8 = st.tabs([
     "🏆 Leaderboard",
     "📊 Players",
     "🏏 Teams",
@@ -543,14 +543,15 @@ tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs([
     "📋 XI Leaderboard",
     "🚫 Unsold",
     "🔄 Update Data",
+    "👥 Edit Squads",
 ])
 
 # ─────────────────────────────────────────────
 # 🏆 LEADERBOARD
 # ─────────────────────────────────────────────
 with tab1:
-    st.markdown("<div class='section-title'>🏆 Fantasy League Standings</div>", unsafe_allow_html=True)
-    st.markdown("<div class='section-sub'>Ranked by total fantasy impact points</div>", unsafe_allow_html=True)
+    st.markdown("<div class='section-title'>🏆 Squad Points Standings</div>", unsafe_allow_html=True)
+    st.markdown("<div class='section-sub'>Ranked by total ESPNCricinfo MVP points</div>", unsafe_allow_html=True)
 
     team_totals = (
         df[df["team"] != "Unsold"]
@@ -614,7 +615,7 @@ with tab2:
         <div>
             <div class="mvp-title">🔥 MVP Leader</div>
             <div class="mvp-name">{top['player']}</div>
-            <div class="mvp-pts">{top['team']} · {top['impact']:.2f} fantasy points</div>
+            <div class="mvp-pts">{top['team']} · {top['impact']:.2f} Impact points</div>
         </div>
     </div>
     """, unsafe_allow_html=True)
@@ -705,7 +706,7 @@ with tab4:
     # ── Edit Lineup (password-protected) ──
     with st.expander("✏️ Edit Lineup", expanded=False):
         pwd = st.text_input("Enter admin password", type="password", key="xi_pwd")
-        correct_pwd = st.secrets.get("lineup_password", "ipl2026")  # fallback for dev
+        correct_pwd = st.secrets.get("admin_password")
         if pwd == correct_pwd:
             st.success("✅ Access granted — editing mode enabled")
             edit_team = st.selectbox(
@@ -799,8 +800,7 @@ with tab4:
 # ─────────────────────────────────────────────
 with tab5:
     st.markdown("<div class='section-title'>📋 Playing XI Leaderboard</div>", unsafe_allow_html=True)
-    st.markdown("<div class='section-sub'>Fantasy standings based on playing lineups only</div>", unsafe_allow_html=True)
-
+    st.markdown("<div class='section-sub'>Team Sandings based on playing lineups only</div>", unsafe_allow_html=True)
     lineups = load_lineups()
     xi_standings = []
 
@@ -887,7 +887,7 @@ with tab7:
 
     # ── Password gate ──
     upd_pwd = st.text_input("🔐 Admin password", type="password", key="update_pwd")
-    correct_pwd = st.secrets.get("lineup_password", "ipl2026")
+    correct_pwd = st.secrets.get("admin_password")
 
     if not upd_pwd:
         st.markdown("""
@@ -1001,3 +1001,54 @@ with tab7:
                 <div style="font-size:0.8rem;margin-top:4px">or use the uploader above</div>
             </div>
             """, unsafe_allow_html=True)
+
+# ─────────────────────────────────────────────
+# 👥 EDIT SQUADS
+# ─────────────────────────────────────────────
+with tab8:
+    st.markdown("<div class='section-title'>👥 Edit Squads</div>", unsafe_allow_html=True)
+    st.markdown("<div class='section-sub'>Directly edit the squads.json file and add or remove players from teams</div>", unsafe_allow_html=True)
+
+    # ── Password gate ──
+    sq_pwd = st.text_input("🔐 Admin password ", type="password", key="squads_pwd")
+    correct_pwd = st.secrets.get("admin_password")
+
+    if not sq_pwd:
+        st.info("Enter admin password to enable the squads editor.")
+    elif sq_pwd != correct_pwd:
+        st.error("❌ Incorrect password")
+    else:
+        st.success("✅ Access granted")
+        squads_json_str = json.dumps(SQUADS, indent=4)
+        
+        edited_squads = st.text_area(
+            "Squads JSON",
+            value=squads_json_str,
+            height=500,
+            help="Ensure this is valid JSON. The format must be a dictionary where keys are team names and values are lists of player names."
+        )
+        
+        if st.button("💾 Save Squads", type="primary", key="save_squads_btn"):
+            try:
+                parsed_squads = json.loads(edited_squads)
+                
+                # Basic validation
+                if not isinstance(parsed_squads, dict):
+                    raise ValueError("Root element must be a dictionary.")
+                for team, players in parsed_squads.items():
+                    if not isinstance(players, list):
+                        raise ValueError(f"Value for team '{team}' must be a list of players.")
+                
+                # Save to squads.json
+                base_dir = os.path.dirname(__file__)
+                with open(os.path.join(base_dir, "squads.json"), "w") as f:
+                    json.dump(parsed_squads, f, indent=4)
+                
+                st.success("✅ Squads updated successfully!")
+                st.info("Click **🔄 Refresh Data** at the top to reload the dashboard with updated squads.")
+                st.cache_data.clear()
+            
+            except json.JSONDecodeError as e:
+                st.error(f"❌ Invalid JSON format: {e}")
+            except Exception as e:
+                st.error(f"❌ Failed to parse or save squads: {e}")
