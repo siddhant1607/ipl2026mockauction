@@ -471,31 +471,33 @@ def set_app_state(key: str, data):
 
 def get_app_state(key: str):
     if USE_DATABASE:
-        with conn.session as s:
-            res = s.execute(text("SELECT data FROM app_state WHERE key = :k"), {"k": key}).fetchone()
-            if res and res[0]:
-                return res[0]
+        try:
+            with conn.session as s:
+                res = s.execute(text("SELECT data FROM app_state WHERE key = :k"), {"k": key}).fetchone()
+                if res and res[0]:
+                    return res[0]
+        except Exception:
+            return None
     return None
 
-# ─────────────────────────────────────────────
-# LOAD DATA
-# ─────────────────────────────────────────────
+
 @st.cache_data
-def load_data():
-    db_data = get_app_state("master")
+def load_mvp_points():
+    """Load player points list from database or mvp.json."""
+    db_data = get_app_state("mvp")
     if db_data is not None:
-        return pd.DataFrame(db_data)
+        return db_data
         
     try:
-        return pd.read_json("master.json")
-    except Exception as e:
-        st.error("Error loading master.json")
-        st.exception(e)
-        return pd.DataFrame()
+        with open("mvp.json") as f:
+            return json.load(f)
+    except Exception:
+        return []
 
 
 @st.cache_data
 def load_squads():
+    """Load team rosters from database or squads.json."""
     db_data = get_app_state("squads")
     if db_data is not None:
         return db_data
@@ -503,10 +505,34 @@ def load_squads():
     try:
         with open("squads.json") as f:
             return json.load(f)
-    except Exception as e:
-        st.error("Error loading squads.json")
-        st.exception(e)
+    except Exception:
         return {}
+
+
+def load_data():
+    """Construct the master DataFrame dynamically by merging MVP points and Squads."""
+    mvp_list = load_mvp_points()
+    squads_dict = load_squads()
+    
+    # Pre-map players to teams for fast lookup
+    PLAYER_TO_TEAM = {
+        p.lower(): team
+        for team, players in squads_dict.items()
+        for p in players
+    }
+    
+    master_rows = []
+    for item in mvp_list:
+        name = item.get("player", "")
+        pts = item.get("impact", 0.0)
+        team = PLAYER_TO_TEAM.get(name.lower(), "Unsold")
+        master_rows.append({
+            "player": name,
+            "team": team,
+            "impact": pts
+        })
+    
+    return pd.DataFrame(master_rows)
 
 
 def load_lineups():
@@ -533,8 +559,8 @@ def save_lineups(lineups: dict):
         pass
 
 
-def process_excel(file_bytes: bytes, squads: dict) -> tuple[list, list, list]:
-    """Process uploaded Excel bytes → returns (mvp_rows, master_rows, unmatched_players)."""
+def process_excel(file_bytes: bytes, squads: dict) -> tuple[list, list]:
+    """Process uploaded Excel bytes → returns (mvp_rows, unmatched_players)."""
     PLAYER_TO_TEAM = {
         p.lower(): team
         for team, players in squads.items()
@@ -560,20 +586,18 @@ def process_excel(file_bytes: bytes, squads: dict) -> tuple[list, list, list]:
                 "impact": current_impact if current_impact is not None else 0.0
             })
 
-    master_rows = []
     unmatched = []
     for row in mvp_rows:
         name = row["player"]
         team = PLAYER_TO_TEAM.get(name.lower(), "Unsold")
         if team == "Unsold":
             unmatched.append(name)
-        master_rows.append({"player": name, "team": team, "impact": row["impact"]})
 
-    return mvp_rows, master_rows, unmatched
+    return mvp_rows, unmatched
 
 
-df = load_data()
 SQUADS = load_squads()
+df = load_data()
 
 # ─────────────────────────────────────────────
 # HEADER
@@ -1032,7 +1056,7 @@ with tab7:
 
             try:
                 with st.spinner("Parsing Excel…"):
-                    mvp_rows, master_rows, unmatched = process_excel(file_bytes, SQUADS)
+                    mvp_rows, unmatched = process_excel(file_bytes, SQUADS)
 
                 # ── Preview ──
                 st.markdown("<div class='section-title' style='font-size:1.1rem;margin-top:16px'>📋 Preview</div>", unsafe_allow_html=True)
@@ -1046,10 +1070,10 @@ with tab7:
                     </div>
                     """, unsafe_allow_html=True)
                 with col_prev2:
-                    matched = len(master_rows) - len(unmatched)
+                    matched_count = len(mvp_rows) - len(unmatched)
                     st.markdown(f"""
                     <div class="metric-card">
-                        <div class="metric-value" style="color:#48bb78">{matched}</div>
+                        <div class="metric-value" style="color:#48bb78">{matched_count}</div>
                         <div class="metric-label">Matched to squads</div>
                     </div>
                     """, unsafe_allow_html=True)
@@ -1064,11 +1088,20 @@ with tab7:
 
                 st.markdown("<div style='height:12px'></div>", unsafe_allow_html=True)
 
-                # Top 10 preview table
-                preview_df = pd.DataFrame(master_rows).head(15)
+                # Top 15 preview table (Calculate teams on the fly for preview)
+                PLAYER_TO_TEAM_LOCAL = {p.lower(): t for t, players in SQUADS.items() for p in players}
+                preview_list = []
+                for row in mvp_rows[:15]:
+                    name = row["player"]
+                    preview_list.append({
+                        "Player": name,
+                        "Team": PLAYER_TO_TEAM_LOCAL.get(name.lower(), "Unsold"),
+                        "Points": row["impact"]
+                    })
+                
+                preview_df = pd.DataFrame(preview_list)
                 preview_df.index = range(1, len(preview_df) + 1)
-                preview_df.columns = ["Player", "Team", "Points"]
-                st.markdown("<div style='color:#94a3b8;font-size:0.8rem;margin-bottom:6px'>Top 15 preview (sorted by original order):</div>", unsafe_allow_html=True)
+                st.markdown("<div style='color:#94a3b8;font-size:0.8rem;margin-bottom:6px'>Top 15 preview:</div>", unsafe_allow_html=True)
                 st.dataframe(preview_df, width="stretch", hide_index=False)
 
                 # Unmatched warning
@@ -1086,28 +1119,35 @@ with tab7:
                             json.dump(mvp_rows, f, indent=2)
                         set_app_state("mvp", mvp_rows)
 
-                        # Save master.json
-                        with open(os.path.join(base_dir, "master.json"), "w") as f:
-                            json.dump(master_rows, f, indent=2)
-                        set_app_state("master", master_rows)
-
                         # Also overwrite the local MVP.xlsx with the uploaded version
                         with open(os.path.join(base_dir, "MVP.xlsx"), "wb") as f:
                             f.write(file_bytes)
 
-                    st.success(f"✅ Done! mvp.json ({len(mvp_rows)} players) and master.json updated.")
-                    st.info("Click **🔄 Refresh Data** at the top to reload the dashboard with updated data.")
-
+                    st.success(f"✅ Done! mvp.json ({len(mvp_rows)} players) updated.")
+                    st.info("The dashboard now uses real-time merging of these points with your squads.")
+                    
                     # Clear cache so next rerun picks up new data
                     st.cache_data.clear()
+                    st.rerun()
 
                 # ── Download buttons ──
                 st.markdown("<div class='section-title' style='font-size:1.1rem;margin-top:24px'>📥 Download Data</div>", unsafe_allow_html=True)
                 dl_col1, dl_col2 = st.columns(2)
                 with dl_col1:
+                    # Construct a temporary master list for download purposes
+                    current_master = []
+                    PLAYER_TO_TEAM_DL = {p.lower(): t for t, plist in SQUADS.items() for p in plist}
+                    for row in mvp_rows:
+                        name = row["player"]
+                        current_master.append({
+                            "player": name, 
+                            "team": PLAYER_TO_TEAM_DL.get(name.lower(), "Unsold"), 
+                            "impact": row["impact"]
+                        })
+                    
                     st.download_button(
-                        label="📥 Download master.json",
-                        data=pd.DataFrame(master_rows).to_json(orient="records", indent=2),
+                        label="📥 Download master.json (Live)",
+                        data=json.dumps(current_master, indent=2),
                         file_name="master.json",
                         mime="application/json",
                         key="dl_master_btn"
@@ -1115,7 +1155,7 @@ with tab7:
                 with dl_col2:
                     st.download_button(
                         label="📥 Download mvp.json",
-                        data=pd.DataFrame(mvp_rows).to_json(orient="records", indent=2),
+                        data=json.dumps(mvp_rows, indent=2),
                         file_name="mvp.json",
                         mime="application/json",
                         key="dl_mvp_btn"
