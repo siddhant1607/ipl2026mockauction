@@ -79,7 +79,11 @@ All administrative tabs are protected by an `admin_password`. To configure your 
 ![IPL Dashboard Workflow](assets/img1.png)
 
 
-3.  **Persistence Sync**: If you are using Neon DB, the app handles everything. If you are using Mode A, remember to copy the JSON text from the editor tab into your GitHub repository to ensure a permanent record!
+3.  **Persistence Sync**: 
+    - **Neon Mode**: The app automatically handles saving every change to your cloud database. To keep your GitHub repository in sync, you can occasionally copy the JSON from the **👥 Edit Squads** and **⭐ Playing XIs** tabs and paste it into your local `squads.json` and `lineups.json` files.
+    - **GitHub Only Mode**: Since the Streamlit server resets periodically, you MUST manually copy the JSON text from the dashboard back into your GitHub repository to prevent data loss.
+
+![Syncing Data back to GitHub](assets/img2.png)
 
 ---
 

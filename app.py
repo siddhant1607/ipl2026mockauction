@@ -828,6 +828,15 @@ with tab4:
                     save_lineups(lineups)
                     st.success(f"✅ {edit_team} lineup saved!")
                     st.rerun()
+            with st.container():
+                st.markdown("<div style='height:12px'></div>", unsafe_allow_html=True)
+                st.download_button(
+                    label="📥 Download lineups.json",
+                    data=json.dumps(lineups, indent=2),
+                    file_name="lineups.json",
+                    mime="application/json",
+                    key="dl_lineups_btn"
+                )
         elif pwd:
             st.error("❌ Incorrect password")
 
@@ -1073,6 +1082,26 @@ with tab7:
                     # Clear cache so next rerun picks up new data
                     st.cache_data.clear()
 
+                # ── Download buttons ──
+                st.markdown("<div class='section-title' style='font-size:1.1rem;margin-top:24px'>📥 Download Data</div>", unsafe_allow_html=True)
+                dl_col1, dl_col2 = st.columns(2)
+                with dl_col1:
+                    st.download_button(
+                        label="📥 Download master.json",
+                        data=pd.DataFrame(master_rows).to_json(orient="records", indent=2),
+                        file_name="master.json",
+                        mime="application/json",
+                        key="dl_master_btn"
+                    )
+                with dl_col2:
+                    st.download_button(
+                        label="📥 Download mvp.json",
+                        data=pd.DataFrame(mvp_rows).to_json(orient="records", indent=2),
+                        file_name="mvp.json",
+                        mime="application/json",
+                        key="dl_mvp_btn"
+                    )
+
             except KeyError as e:
                 st.error(f"❌ Column not found in Excel: {e}\n\nMake sure the sheet has **'Player'** and **'Total Impact'** columns.")
             except Exception as e:
@@ -1139,3 +1168,13 @@ with tab8:
                 st.error(f"❌ Invalid JSON format: {e}")
             except Exception as e:
                 st.error(f"❌ Failed to parse or save squads: {e}")
+
+        # ── Download button ──
+        st.markdown("<div style='height:12px'></div>", unsafe_allow_html=True)
+        st.download_button(
+            label="📥 Download squads.json",
+            data=json.dumps(SQUADS, indent=2),
+            file_name="squads.json",
+            mime="application/json",
+            key="dl_squads_btn"
+        )
