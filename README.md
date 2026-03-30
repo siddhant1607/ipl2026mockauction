@@ -75,12 +75,10 @@ All administrative tabs are protected by an `admin_password`. To configure your 
 
 1.  **Mock Auction**: Use the **Edit Squads** tab to add players to teams as they are sold. 
 2.  **Live Updates**: As the IPL season progresses, update the stats by creating a new `MVP.xlsx` file and uploading it to the **Update Data** tab.
-    *   Find the ESPNCricinfo MVP Points Table Page (eg: https://www.espncricinfo.com/series/ipl-2026-1510719/most-valuable-players) and copy the table data like shown. 
-    ![Copying Data](assets/img1.png)
+    *   Find an MVP or fantasy points table (e.g., ESPNCricinfo)    ![Copying Data](assets/img1.png)
     *   Paste it into an empty Excel file, ensuring it has at least the **Player** and **Total Impact** columns.
     ![Pasting to Excel](assets/img3.png)
     *   Save it as `MVP.xlsx` and upload it to the dashboard.
-    ![Dashboard Upload](assets/img1.png)
 
 3.  **Persistence Sync**: 
     - **Neon Mode**: The app automatically handles saving every change to your cloud database. To keep your GitHub repository in sync, you can occasionally download the JSON from the dashboard (using the new 📥 Download buttons) and replace your local `squads.json`, `lineups.json`, `master.json`, and `mvp.json` files.
