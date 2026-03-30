@@ -4,6 +4,7 @@ import json
 import os
 import base64
 import io
+from sqlalchemy import text
 
 # ─────────────────────────────────────────────
 # CONFIG
@@ -431,10 +432,60 @@ html, body, [class*="css"] {
 """, unsafe_allow_html=True)
 
 # ─────────────────────────────────────────────
+# DATABASE CONFIG & MIGRATION
+# ─────────────────────────────────────────────
+USE_DATABASE = "neon_url" in st.secrets
+
+if USE_DATABASE:
+    conn = st.connection("neon", type="sql", url=st.secrets["neon_url"])
+    try:
+        with conn.session as s:
+            s.execute(text("""
+                CREATE TABLE IF NOT EXISTS app_state (
+                    key VARCHAR(50) PRIMARY KEY,
+                    data JSONB
+                );
+            """))
+            count = s.execute(text("SELECT COUNT(*) FROM app_state")).scalar()
+            if count == 0:
+                st.info("🔄 Migrating local JSON files to your new Neon DB...")
+                files = {"squads": "squads.json", "lineups": "lineups.json", "master": "master.json", "mvp": "mvp.json"}
+                base = os.path.dirname(__file__)
+                for k, fname in files.items():
+                    fpath = os.path.join(base, fname)
+                    if os.path.exists(fpath):
+                        with open(fpath, "r") as f:
+                            jdata = json.load(f)
+                            s.execute(text("INSERT INTO app_state (key, data) VALUES (:k, CAST(:dat AS JSONB)) ON CONFLICT (key) DO UPDATE SET data = EXCLUDED.data;"), {"k": k, "dat": json.dumps(jdata)})
+                s.commit()
+            else:
+                s.commit()
+    except Exception as e:
+        st.error(f"Failed to synchronize with Neon DB: {e}")
+
+def set_app_state(key: str, data):
+    if USE_DATABASE:
+        with conn.session as s:
+            s.execute(text("INSERT INTO app_state (key, data) VALUES (:k, CAST(:dat AS JSONB)) ON CONFLICT (key) DO UPDATE SET data = EXCLUDED.data;"), {"k": key, "dat": json.dumps(data)})
+            s.commit()
+
+def get_app_state(key: str):
+    if USE_DATABASE:
+        with conn.session as s:
+            res = s.execute(text("SELECT data FROM app_state WHERE key = :k"), {"k": key}).fetchone()
+            if res and res[0]:
+                return res[0]
+    return None
+
+# ─────────────────────────────────────────────
 # LOAD DATA
 # ─────────────────────────────────────────────
 @st.cache_data
 def load_data():
+    db_data = get_app_state("master")
+    if db_data is not None:
+        return pd.DataFrame(db_data)
+        
     try:
         return pd.read_json("master.json")
     except Exception as e:
@@ -445,6 +496,10 @@ def load_data():
 
 @st.cache_data
 def load_squads():
+    db_data = get_app_state("squads")
+    if db_data is not None:
+        return db_data
+        
     try:
         with open("squads.json") as f:
             return json.load(f)
@@ -455,6 +510,10 @@ def load_squads():
 
 
 def load_lineups():
+    db_data = get_app_state("lineups")
+    if db_data is not None:
+        return db_data
+        
     path = os.path.join(os.path.dirname(__file__), "lineups.json")
     if os.path.exists(path):
         with open(path) as f:
@@ -463,9 +522,15 @@ def load_lineups():
 
 
 def save_lineups(lineups: dict):
+    set_app_state("lineups", lineups)
+    
+    # Still write to local file as immediate backup
     path = os.path.join(os.path.dirname(__file__), "lineups.json")
-    with open(path, "w") as f:
-        json.dump(lineups, f, indent=2)
+    try:
+        with open(path, "w") as f:
+            json.dump(lineups, f, indent=2)
+    except Exception:
+        pass
 
 
 def process_excel(file_bytes: bytes, squads: dict) -> tuple[list, list, list]:
@@ -719,7 +784,7 @@ with tab4:
             current_xi = lineups.get(edit_team, [])
             xi_size = st.radio("Lineup size", [11, 12, 13], horizontal=True, key="xi_size_radio")
             
-            st.markdown(f"<div style='margin-bottom:8px;font-weight:600;color:#e2e8f0;'>Select players for {edit_team}</div>", unsafe_allow_html=True)
+            st.markdown(f"<div style='margin-bottom:8px;font-weight:600;color:var(--text-color);'>Select players for {edit_team}</div>", unsafe_allow_html=True)
             
             player_data = []
             for p in squad_options:
@@ -748,7 +813,7 @@ with tab4:
             # Display real-time total
             st.markdown(f"""
             <div style="background:rgba(99,102,241,0.1); border:1px solid rgba(99,102,241,0.3); border-radius:8px; padding:12px 16px; margin: 16px 0;">
-                <span style="color:#cbd5e1;font-size:0.9rem">Current Selection Total:</span> 
+                <span style="color:var(--text-color);font-size:0.9rem">Current Selection Total:</span> 
                 <span style="color:#60a5fa;font-size:1.1rem;font-weight:700;margin-left:8px">{selected_pts:.1f} pts</span>
             </div>
             """, unsafe_allow_html=True)
@@ -795,17 +860,9 @@ with tab4:
                             pts = match.iloc[0]["impact"] if not match.empty else 0.0
                             xi_total += pts
                             pts_color = c["accent"] if pts > 0 else ("#ef4444" if pts < 0 else "#94a3b8")
-                            xi_rows_html += f"""
-                            <div class="lineup-player">
-                                <span style="color:#cbd5e1">{p}</span>
-                                <span style="font-weight:700;color:{pts_color}">{pts:.1f}</span>
-                            </div>"""
+                            xi_rows_html += f'<div class="lineup-player"><span style="color:var(--text-color);">{p}</span><span style="font-weight:700;color:{pts_color}">{pts:.1f}</span></div>'
 
-                        xi_rows_html += f"""
-                        <div class="lineup-total" style="border-top:1px solid {c['accent']}44;margin-top:6px;">
-                            <span style="color:#e2e8f0">Total ({len(xi)})</span>
-                            <span style="color:{c['accent']}">{xi_total:.1f} pts</span>
-                        </div>"""
+                        xi_rows_html += f'<div class="lineup-total" style="border-top:1px solid {c["accent"]}44;margin-top:6px;"><span style="color:var(--text-color);">Total ({len(xi)})</span><span style="font-weight:700;color:{c["accent"]}">{xi_total:.1f} pts</span></div>'
                     else:
                         xi_rows_html = "<div style='color:#475569;font-size:0.82rem;padding:8px'>No lineup set</div>"
 
@@ -999,10 +1056,12 @@ with tab7:
                         # Save mvp.json
                         with open(os.path.join(base_dir, "mvp.json"), "w") as f:
                             json.dump(mvp_rows, f, indent=2)
+                        set_app_state("mvp", mvp_rows)
 
                         # Save master.json
                         with open(os.path.join(base_dir, "master.json"), "w") as f:
                             json.dump(master_rows, f, indent=2)
+                        set_app_state("master", master_rows)
 
                         # Also overwrite the local MVP.xlsx with the uploaded version
                         with open(os.path.join(base_dir, "MVP.xlsx"), "wb") as f:
@@ -1070,6 +1129,7 @@ with tab8:
                 base_dir = os.path.dirname(__file__)
                 with open(os.path.join(base_dir, "squads.json"), "w") as f:
                     json.dump(parsed_squads, f, indent=4)
+                set_app_state("squads", parsed_squads)
                 
                 st.success("✅ Squads updated successfully!")
                 st.info("Click **🔄 Refresh Data** at the top to reload the dashboard with updated squads.")
