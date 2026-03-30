@@ -1001,7 +1001,7 @@ with tab7:
             2. Copy the MVP table starting from the headers down to the required players.
             """)
             try:
-                st.image("assets/img2.png", caption="Copying from ESPNCricinfo table")
+                st.image("assets/img1.png", caption="Copying from ESPNCricinfo table")
             except Exception:
                 pass
             
