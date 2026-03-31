@@ -567,6 +567,10 @@ def clear_lineup_callback(team_name, players):
         k = f"chk_{team_name}_{p}"
         if k in st.session_state:
             st.session_state[k] = False
+    # Persist the cleared lineup to DB and file
+    lineups = load_lineups()
+    lineups[team_name] = []
+    save_lineups(lineups)
 
 
 def process_excel(file_bytes: bytes, squads: dict) -> tuple[list, list]:
@@ -661,7 +665,13 @@ with tab1:
         .reset_index()
     )
 
-    top_score = team_totals.iloc[0]["impact"]
+    # Ensure all teams from SQUADS appear even with 0 points
+    for team_key in SQUADS:
+        if team_key not in team_totals["team"].values:
+            team_totals = pd.concat([team_totals, pd.DataFrame([{"team": team_key, "impact": 0.0}])], ignore_index=True)
+    team_totals = team_totals.sort_values(by="impact", ascending=False).reset_index(drop=True)
+
+    top_score = team_totals.iloc[0]["impact"] if not team_totals.empty else 0.0
 
     rank_icons = {1: "🥇", 2: "🥈", 3: "🥉"}
 
@@ -702,26 +712,29 @@ with tab1:
 with tab2:
     st.markdown("<div class='section-title'>📊 Player Performance</div>", unsafe_allow_html=True)
 
-    top = df.sort_values(by="impact", ascending=False).iloc[0]
-    top_team_colors = TEAM_COLORS.get(top["team"], {"bg": "#7c3aed", "text": "#fff"})
-    top_logo_b64 = get_logo_b64(top["team"])
-    top_logo_html = (
-        f'<img style="width:48px;height:48px;object-fit:contain;border-radius:8px;background:rgba(255,255,255,0.1);padding:4px" src="data:image/png;base64,{top_logo_b64}" />'
-        if top_logo_b64 else ""
-    )
-    st.markdown(f"""
-    <div class="mvp-banner">
-        {top_logo_html}
-        <div>
-            <div class="mvp-title">🔥 MVP Leader</div>
-            <div class="mvp-name">{top['player']}</div>
-            <div class="mvp-pts">{top['team']} · {top['impact']:.2f} Impact points</div>
+    if not df.empty:
+        top = df.sort_values(by="impact", ascending=False).iloc[0]
+        top_team_colors = TEAM_COLORS.get(top["team"], {"bg": "#7c3aed", "text": "#fff"})
+        top_logo_b64 = get_logo_b64(top["team"])
+        top_logo_html = (
+            f'<img style="width:48px;height:48px;object-fit:contain;border-radius:8px;background:rgba(255,255,255,0.1);padding:4px" src="data:image/png;base64,{top_logo_b64}" />'
+            if top_logo_b64 else ""
+        )
+        st.markdown(f"""
+        <div class="mvp-banner">
+            {top_logo_html}
+            <div>
+                <div class="mvp-title">🔥 MVP Leader</div>
+                <div class="mvp-name">{top['player']}</div>
+                <div class="mvp-pts">{top['team']} · {top['impact']:.2f} Impact points</div>
+            </div>
         </div>
-    </div>
-    """, unsafe_allow_html=True)
+        """, unsafe_allow_html=True)
+    else:
+        st.info("No player data available yet. Upload MVP data to get started.")
 
     search = st.text_input("🔍 Search player", placeholder="Type a player name…")
-    filtered = df[df["player"].str.contains(search, case=False, na=False)] if search else df
+    filtered = df[df["player"].str.contains(search, case=False, na=False, regex=False)] if search else df
     filtered = filtered.sort_values(by="impact", ascending=False).reset_index(drop=True)
     filtered["Rank"] = filtered.index + 1
 
@@ -763,7 +776,7 @@ with tab3:
     # Build player data
     rows = []
     for p in players:
-        match = df[df["player"].str.contains(p, case=False, na=False)]
+        match = df[df["player"].str.contains(p, case=False, na=False, regex=False)]
         pts = match.iloc[0]["impact"] if not match.empty else 0.0
         rows.append({"Player": p, "Points": pts})
 
@@ -828,7 +841,7 @@ with tab4:
 
                     if xi:
                         for idx, p in enumerate(xi):
-                            match = df[df["player"].str.contains(p, case=False, na=False)]
+                            match = df[df["player"].str.contains(p, case=False, na=False, regex=False)]
                             pts = match.iloc[0]["impact"] if not match.empty else 0.0
                             xi_total += pts
                             pts_color = c["accent"] if pts > 0 else ("#ef4444" if pts < 0 else "#94a3b8")
@@ -856,7 +869,7 @@ with tab4:
 # ─────────────────────────────────────────────
 with tab5:
     st.markdown("<div class='section-title'>📋 Playing XI Leaderboard</div>", unsafe_allow_html=True)
-    st.markdown("<div class='section-sub'>Team Sandings based on playing lineups only</div>", unsafe_allow_html=True)
+    st.markdown("<div class='section-sub'>Team Standings based on playing lineups only</div>", unsafe_allow_html=True)
     lineups = load_lineups()
     xi_standings = []
 
@@ -866,7 +879,7 @@ with tab5:
             continue
         total = 0.0
         for p in xi:
-            match = df[df["player"].str.contains(p, case=False, na=False)]
+            match = df[df["player"].str.contains(p, case=False, na=False, regex=False)]
             if not match.empty:
                 total += match.iloc[0]["impact"]
         xi_standings.append({"team": team_key, "points": total, "size": len(xi)})
@@ -924,7 +937,7 @@ with tab6:
     search_unsold = st.text_input("🔍 Search", placeholder="Filter unsold players…", key="unsold_search")
 
     if search_unsold:
-        unsold_df = unsold_df[unsold_df["player"].str.contains(search_unsold, case=False, na=False)]
+        unsold_df = unsold_df[unsold_df["player"].str.contains(search_unsold, case=False, na=False, regex=False)]
 
     unsold_df = unsold_df.sort_values(by="impact", ascending=False).reset_index(drop=True)
     unsold_df["Rank"] = unsold_df.index + 1
@@ -942,7 +955,7 @@ with tab7:
     st.markdown("<div class='section-sub'>Upload a new MVP Excel sheet to regenerate mvp.json and master.json</div>", unsafe_allow_html=True)
 
     # ── Password gate ──
-    upd_pwd = st.text_input("🔐 Admin password", type="password", key="update_pwd")
+    upd_pwd = st.text_input("🔐 Enter Admin password", type="password", key="update_pwd")
     correct_pwd = st.secrets.get("admin_password")
 
     if not upd_pwd:
@@ -1123,7 +1136,7 @@ with tab8:
     st.markdown("<div class='section-sub'>Directly edit the squads.json file and add or remove players from teams</div>", unsafe_allow_html=True)
 
     # ── Password gate ──
-    sq_pwd = st.text_input("🔐 Admin password ", type="password", key="squads_pwd")
+    sq_pwd = st.text_input("🔐 Enter Admin password ", type="password", key="squads_pwd")
     correct_pwd = st.secrets.get("admin_password")
 
     if not sq_pwd:
@@ -1148,9 +1161,14 @@ with tab8:
                 # Basic validation
                 if not isinstance(parsed_squads, dict):
                     raise ValueError("Root element must be a dictionary.")
+                all_player_names = []
                 for team, players in parsed_squads.items():
                     if not isinstance(players, list):
                         raise ValueError(f"Value for team '{team}' must be a list of players.")
+                    for p in players:
+                        if p in all_player_names:
+                            raise ValueError(f"Duplicate player: '{p}' appears in multiple squads.")
+                        all_player_names.append(p)
                 
                 # Save to squads.json
                 base_dir = os.path.dirname(__file__)
@@ -1187,7 +1205,7 @@ with tab9:
     lineups = load_lineups()
 
     # ── Admin password gate ──
-    pwd = st.text_input("Enter admin password", type="password", key="xi_pwd")
+    pwd = st.text_input("🔐 Enter Admin password", type="password", key="xi_pwd")
     correct_pwd = st.secrets.get("admin_password")
     
     if not pwd:
@@ -1227,7 +1245,7 @@ with tab9:
         
         player_data = []
         for p in squad_options:
-            match = df[df["player"].str.contains(p, case=False, na=False)]
+            match = df[df["player"].str.contains(p, case=False, na=False, regex=False)]
             pts = match.iloc[0]["impact"] if not match.empty else 0.0
             player_data.append({"name": p, "pts": pts})
         
