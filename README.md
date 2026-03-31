@@ -1,6 +1,6 @@
-# 🏏 IPL 2026 Fantasy Dashboard
+# 🏏 IPL 2026 Mock Auction Dashboard
 
-A high-performance, visually stunning companion for your IPL 2026 Mock Auction and Fantasy League. Built with **Streamlit** and optimized for both local use and long-term cloud deployment.
+A high-performance, visually stunning companion for your IPL 2026 Mock Auction. Built with **Streamlit** and optimized for both local use and long-term cloud deployment.
 
 ---
 
@@ -76,7 +76,7 @@ All administrative tabs are protected by an `admin_password`. To configure your 
 
 1.  **Mock Auction**: Use the **Edit Squads** tab to add players to teams as they are sold. 
 2.  **Live Updates**: As the IPL season progresses, update the stats by creating a new `MVP.xlsx` file and uploading it to the **Update Data** tab.
-    *   Find an MVP or fantasy points table (e.g., [ESPNCricinfo MVP](https://www.espncricinfo.com/series/ipl-2026-1510719/most-valuable-players)) and copy the table data.
+    *   Find an MVP or Impact points table (e.g., [ESPNCricinfo MVP](https://www.espncricinfo.com/series/ipl-2026-1510719/most-valuable-players)) and copy the table data.
     ![Copying Data](assets/img1.png)
     *   Paste it into an empty Excel file, ensuring it has at least the **Player** and **Total Impact** columns.
     ![Pasting to Excel](assets/img3.png)
