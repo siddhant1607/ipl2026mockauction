@@ -872,7 +872,7 @@ with tab5:
         xi_standings.append({"team": team_key, "points": total, "size": len(xi)})
 
     if not xi_standings:
-        st.info("No lineups have been set yet. Go to the **⭐ Playing XIs** tab to configure lineups.")
+        st.info("No lineups set yet. Use the **✏️ Edit Lineups** tab to add your first playing XI.")
     else:
         xi_standings.sort(key=lambda x: x["points"], reverse=True)
         top_xi = xi_standings[0]["points"]
