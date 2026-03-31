@@ -60,14 +60,15 @@ All administrative tabs are protected by an `admin_password`. To configure your 
 
 | Tab | Purpose |
 | :--- | :--- |
-| **🏆 Leaderboard** | The main standings. Shows team ranks based on the impact points of their *entire* 25-man squad. |
-| **🏃 Players** | A searchable directory of all players in the auction, sorted by impact score. |
-| **🏘️ Teams** | Deep dive into individual rosters. See who bought whom and their total squad value. |
-| **⭐ Playing XIs** | **[ADMIN]** Where you select the 11, 12, or 13 players who will actually play. Includes a real-time point calculator. |
+| **🏆 Leaderboard** | The main standings. Shows team ranks based on the impact points of their *entire* squad. |
+| **📊 Players** | A searchable directory of all players in the auction, sorted by impact score. |
+| **🏏 Teams** | Deep dive into individual rosters. See who bought whom and their total squad value. |
+| **⭐ Playing XIs** | View the selected playing lineups for every team. |
 | **📋 XI Leaderboard** | A specialized leaderboard that *only* counts points for the players in the active Playing XI. |
 | **🚫 Unsold** | Keep track of remaining talent in the auction pool. |
 | **🔄 Update Data** | **[ADMIN]** Upload a new `MVP.xlsx` file. The app automatically recalculates team scores by merging these points with your current squads in real-time. |
-| **👥 Edit Squads** | **[ADMIN]** A direct JSON editor to move players between teams. Changes reflect on the leaderboard instantly. |
+| **👥 Edit Squads** | **[ADMIN]** A direct JSON editor to move players between teams. Includes duplicate player detection. |
+| **✏️ Edit Lineups** | **[ADMIN]** The command center for selecting your team's Playing XI (up to 13 players) and setting the batting order via click-sequence. |
 
 ---
 
