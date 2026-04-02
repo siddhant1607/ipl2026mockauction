@@ -1136,7 +1136,7 @@ with tab8:
     st.markdown("<div class='section-sub'>Directly edit the squads.json file and add or remove players from teams</div>", unsafe_allow_html=True)
 
     # ── Password gate ──
-    sq_pwd = st.text_input("🔐 Enter Admin password ", type="password", key="squads_pwd")
+    sq_pwd = st.text_input("🔐 Enter Admin password", type="password", key="squads_pwd")
     correct_pwd = st.secrets.get("admin_password")
 
     if not sq_pwd:
