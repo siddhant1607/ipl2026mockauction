@@ -438,15 +438,13 @@ html, body, [class*="css"] {
 
 /* ── MVP banner ── */
 .mvp-banner {
-    background: linear-gradient(135deg, #0f172a, #1e293b);
-    border: 1px solid rgba(255,255,255,0.12);
     border-radius: 14px;
     padding: 20px 28px;
     display: flex;
     align-items: center;
     gap: 16px;
     margin-bottom: 20px;
-    box-shadow: 0 8px 32px rgba(124,58,237,0.3);
+    box-shadow: 0 4px 20px rgba(0,0,0,0.2);
 }
 .mvp-title {
     font-family: 'Poppins', sans-serif;
@@ -454,7 +452,6 @@ html, body, [class*="css"] {
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.12em;
-    color: #fbbf24;
 }
 .mvp-name {
     font-family: 'Poppins', sans-serif;
@@ -779,19 +776,19 @@ with tab2:
 
     if not df.empty:
         top = df.sort_values(by="impact", ascending=False).iloc[0]
-        top_team_colors = TEAM_COLORS.get(top["team"], {"bg": "#7c3aed", "text": "#fff"})
+        top_team_colors = TEAM_COLORS.get(top["team"], {"bg": "#1e293b", "text": "#fff", "accent": "#60a5fa"})
         top_logo_b64 = get_logo_b64(top["team"])
         top_logo_html = (
             f'<img style="width:48px;height:48px;object-fit:contain;border-radius:8px;background:rgba(255,255,255,0.1);padding:4px" src="data:image/png;base64,{top_logo_b64}" />'
             if top_logo_b64 else ""
         )
         st.markdown(f"""
-        <div class="mvp-banner">
+        <div class="mvp-banner" style="background: linear-gradient(135deg, {top_team_colors['accent']}15, {top_team_colors['accent']}08); border: 1px solid {top_team_colors['accent']}33;">
             {top_logo_html}
             <div>
-                <div class="mvp-title">🔥 MVP Leader</div>
+                <div class="mvp-title" style="color:{top_team_colors['accent']}">MVP Leader</div>
                 <div class="mvp-name">{top['player']}</div>
-                <div class="mvp-pts">{top['team']} · {top['impact']:.1f} Impact points</div>
+                <div class="mvp-pts" style="color:#e2e8f0; opacity:0.8; font-size:0.85rem;">{top['team']} · {top['impact']:.1f} Impact points</div>
             </div>
         </div>
         """, unsafe_allow_html=True)
