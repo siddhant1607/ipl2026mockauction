@@ -89,19 +89,18 @@ html, body, [class*="css"] {
     box-shadow: 0 8px 32px rgba(0,0,0,0.4);
 }
 .page-header h1 {
-    font-family: 'Poppins', sans-serif;
-    font-size: 2rem;
-    font-weight: 800;
-    background: linear-gradient(135deg, #63b3ed, #f6ad55, #fc8181);
+    margin: 0;
+    font-size: 2.22rem;
+    background: linear-gradient(135deg, #fbbf24, #f59e0b);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
-    background-clip: text;
-    margin: 0;
+    font-weight: 800;
 }
 .page-header p {
+    margin: 8px 0 0 0;
     color: #94a3b8;
-    margin: 4px 0 0 0;
-    font-size: 0.85rem;
+    font-size: 0.95rem;
+    opacity: 0.9;
 }
 
 /* ── Tabs ── */
@@ -122,7 +121,7 @@ html, body, [class*="css"] {
     transition: all 0.2s ease;
 }
 .stTabs [aria-selected="true"] {
-    background: linear-gradient(135deg, #3b82f6, #6366f1) !important;
+    background: linear-gradient(135deg, #1e40af, #1e3a8a) !important;
     color: #fff !important;
     font-weight: 600;
 }
@@ -222,7 +221,7 @@ html, body, [class*="css"] {
 }
 .lb-abbr {
     font-size: 0.72rem;
-    opacity: 0.65;
+    color: rgba(226, 232, 240, 0.7);
     font-weight: 400;
 }
 .lb-points {
@@ -232,7 +231,7 @@ html, body, [class*="css"] {
 }
 .lb-gap {
     font-size: 0.78rem;
-    opacity: 0.6;
+    color: rgba(226, 232, 240, 0.6);
     min-width: 60px;
     text-align: right;
 }
@@ -256,7 +255,7 @@ html, body, [class*="css"] {
 }
 .team-header-full {
     font-size: 0.85rem;
-    opacity: 0.7;
+    color: rgba(226, 232, 240, 0.75);
     margin-top: 2px;
 }
 
@@ -278,7 +277,7 @@ html, body, [class*="css"] {
 .player-rank-num {
     font-size: 0.75rem;
     font-weight: 700;
-    color: #475569;
+    color: #94a3b8;
     min-width: 20px;
     text-align: center;
 }
@@ -352,10 +351,47 @@ html, body, [class*="css"] {
 
 /* ── Password input ── */
 .stTextInput input[type="password"] {
-    background: rgba(30,41,59,0.8) !important;
+    background: rgba(30,41,51,0.9) !important;
     border: 1px solid rgba(255,255,255,0.12) !important;
     border-radius: 10px !important;
     color: #e2e8f0 !important;
+}
+/* Force password eye icon container to be dark */
+.stTextInput [data-testid="stBaseButton-secondary"] {
+    background-color: transparent !important;
+    color: #94a3b8 !important;
+    border: none !important;
+}
+.stTextInput div[data-baseweb="input"] {
+    background-color: rgba(30,41,51,0.9) !important;
+}
+
+/* ── Expanders ── */
+[data-testid="stExpander"] {
+    background: rgba(30,41,59,0.7) !important;
+    border: 1px solid rgba(255,255,255,0.08) !important;
+    border-radius: 12px !important;
+}
+[data-testid="stExpander"] summary {
+    color: #e2e8f0 !important;
+    font-weight: 600 !important;
+}
+[data-testid="stExpander"] summary:hover {
+    color: #3b82f6 !important;
+}
+[data-testid="stExpander"] > div[role="region"] {
+    background-color: transparent !important;
+    color: #e2e8f0 !important;
+}
+
+/* ── DataFrames ── */
+[data-testid="stDataFrame"] {
+    background-color: #1a1e2e !important;
+    border-radius: 12px !important;
+}
+/* This targets the underlying grid container if visible */
+[data-testid="stDataFrame"] > div {
+    background-color: #1a1e2e !important;
 }
 
 /* ── Lineup card ── */
@@ -402,7 +438,8 @@ html, body, [class*="css"] {
 
 /* ── MVP banner ── */
 .mvp-banner {
-    background: linear-gradient(135deg, #7c3aed, #dc2626, #ea580c);
+    background: linear-gradient(135deg, #0f172a, #1e293b);
+    border: 1px solid rgba(255,255,255,0.12);
     border-radius: 14px;
     padding: 20px 28px;
     display: flex;
@@ -414,9 +451,10 @@ html, body, [class*="css"] {
 .mvp-title {
     font-family: 'Poppins', sans-serif;
     font-size: 0.75rem;
+    font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.12em;
-    color: rgba(255,255,255,0.7);
+    color: #fbbf24;
 }
 .mvp-name {
     font-family: 'Poppins', sans-serif;
@@ -426,7 +464,18 @@ html, body, [class*="css"] {
 }
 .mvp-pts {
     font-size: 0.9rem;
-    color: rgba(255,255,255,0.75);
+    color: rgba(226, 232, 240, 0.75);
+}
+
+/* Global labels and secondary text */
+label[data-testid="stWidgetLabel"], .stMarkdown p, .stMarkdown li {
+    color: #e2e8f0 !important;
+}
+code {
+    background-color: rgba(255,255,255,0.1) !important;
+    color: #f6ad55 !important;
+    padding: 2px 4px !important;
+    border-radius: 4px !important;
 }
 </style>
 """, unsafe_allow_html=True)
@@ -631,6 +680,22 @@ with col_h2:
 
 col_r1, col_r2 = st.columns([1, 8])
 with col_r2:
+    st.markdown("""
+    <style>
+    div.stButton > button:first-child {
+        background: linear-gradient(135deg, #1e40af, #1e3a8a);
+        color: white;
+        border: none;
+        padding: 10px 24px;
+        border-radius: 8px;
+        font-weight: 600;
+    }
+    div.stButton > button:first-child:hover {
+        background: linear-gradient(135deg, #2563eb, #1e40af);
+        color: white;
+    }
+    </style>
+    """, unsafe_allow_html=True)
     if st.button("🔄 Refresh Data"):
         st.cache_data.clear()
         st.rerun()
@@ -696,8 +761,8 @@ with tab1:
             <span class="lb-rank" style="color:{colors['accent']}">{rank_icon}</span>
             {logo_html}
             <div class="lb-team-name">
-                <span style="color:#e2e8f0">{full_name}</span><br>
-                <span class="lb-abbr" style="color:{colors['accent']}">{team}</span>
+                <span style="color:{colors['accent']}; font-weight:700;">{full_name}</span><br>
+                <span class="lb-abbr">{team}</span>
             </div>
             <div style="text-align:right">
                 <div class="lb-points" style="color:{colors['accent']}">{pts:.1f} pts</div>
@@ -726,7 +791,7 @@ with tab2:
             <div>
                 <div class="mvp-title">🔥 MVP Leader</div>
                 <div class="mvp-name">{top['player']}</div>
-                <div class="mvp-pts">{top['team']} · {top['impact']:.2f} Impact points</div>
+                <div class="mvp-pts">{top['team']} · {top['impact']:.1f} Impact points</div>
             </div>
         </div>
         """, unsafe_allow_html=True)
@@ -741,7 +806,14 @@ with tab2:
     display = filtered[["Rank", "player", "team", "impact"]].copy()
     display.columns = ["Rank", "Player", "Team", "Points"]
 
-    st.dataframe(display, width="stretch", hide_index=True)
+    st.dataframe(
+        display, 
+        width="stretch", 
+        hide_index=True,
+        column_config={
+            "Points": st.column_config.NumberColumn(format="%.1f")
+        }
+    )
 
 # ─────────────────────────────────────────────
 # 🏏 TEAMS
@@ -767,8 +839,8 @@ with tab3:
     <div class="team-header" style="background: linear-gradient(135deg, {colors['accent']}22, {colors['accent']}0a);">
         {logo_html}
         <div>
-            <div class="team-header-name" style="color:{colors['accent']}">{team}</div>
-            <div class="team-header-full" style="color:#94a3b8">{full_name}</div>
+            <div class="team-header-name" style="color:{colors['accent']}">{full_name}</div>
+            <div class="team-header-full" style="color:#94a3b8">{team}</div>
         </div>
     </div>
     """, unsafe_allow_html=True)
@@ -845,9 +917,9 @@ with tab4:
                             pts = match.iloc[0]["impact"] if not match.empty else 0.0
                             xi_total += pts
                             pts_color = c["accent"] if pts > 0 else ("#ef4444" if pts < 0 else "#94a3b8")
-                            xi_rows_html += f'<div class="lineup-player"><span style="color:var(--text-color);"><b style="color:{c["accent"]};margin-right:8px;">#{idx+1}</b> {p}</span><span style="font-weight:700;color:{pts_color}">{pts:.1f}</span></div>'
+                            xi_rows_html += f'<div class="lineup-player"><span style="color:#e2e8f0;"><b style="color:{c["accent"]};margin-right:8px;">#{idx+1}</b> {p}</span><span style="font-weight:700;color:{pts_color}">{pts:.1f}</span></div>'
 
-                        xi_rows_html += f'<div class="lineup-total" style="border-top:1px solid {c["accent"]}44;margin-top:6px;"><span style="color:var(--text-color);">Total ({len(xi)})</span><span style="font-weight:700;color:{c["accent"]}">{xi_total:.1f} pts</span></div>'
+                        xi_rows_html += f'<div class="lineup-total" style="border-top:1px solid {c["accent"]}44;margin-top:6px;"><span style="color:#e2e8f0;">Total ({len(xi)})</span><span style="font-weight:700;color:{c["accent"]}">{xi_total:.1f} pts</span></div>'
                     else:
                         xi_rows_html = "<div style='color:#475569;font-size:0.82rem;padding:8px'>No lineup set</div>"
 
@@ -856,8 +928,8 @@ with tab4:
                         <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;border-bottom:1px solid {c['accent']}33;padding-bottom:12px;">
                             {logo_html}
                             <div>
-                                <div style="font-family:'Poppins',sans-serif;font-weight:700;font-size:1rem;color:{c['accent']}">{team_key}</div>
-                                <div style="font-size:0.72rem;color:#64748b">{TEAM_NAMES.get(team_key,'')}</div>
+                                <div style="font-family:'Poppins',sans-serif;font-weight:700;font-size:1rem;color:{c['accent']}">{TEAM_NAMES.get(team_key,'')}</div>
+                                <div style="font-size:0.72rem;color:#64748b">{team_key}</div>
                             </div>
                         </div>
                         {xi_rows_html}
@@ -911,8 +983,8 @@ with tab5:
                 <span class="lb-rank" style="color:{c['accent']}">{rank_icon}</span>
                 {logo_html}
                 <div class="lb-team-name">
-                    <span style="color:#e2e8f0">{TEAM_NAMES.get(team_key, team_key)}</span><br>
-                    <span class="lb-abbr" style="color:{c['accent']}">{team_key} · Playing {item['size']}</span>
+                    <span style="color:{c['accent']}; font-weight:700;">{TEAM_NAMES.get(team_key, team_key)}</span><br>
+                    <span class="lb-abbr">{team_key} · Playing {item['size']}</span>
                 </div>
                 <div style="text-align:right">
                     <div class="lb-points" style="color:{c['accent']}">{pts:.1f} pts</div>
@@ -945,7 +1017,14 @@ with tab6:
     display_unsold = unsold_df[["Rank", "player", "impact"]].copy()
     display_unsold.columns = ["Rank", "Player", "Points"]
 
-    st.dataframe(display_unsold, width="stretch", hide_index=True)
+    st.dataframe(
+        display_unsold, 
+        width="stretch", 
+        hide_index=True,
+        column_config={
+            "Points": st.column_config.NumberColumn(format="%.1f")
+        }
+    )
 
 # ─────────────────────────────────────────────
 # 🔄 UPDATE DATA
@@ -1054,7 +1133,14 @@ with tab7:
                 preview_df = pd.DataFrame(preview_list)
                 preview_df.index = range(1, len(preview_df) + 1)
                 st.markdown("<div style='color:#94a3b8;font-size:0.8rem;margin-bottom:6px'>Top 15 preview:</div>", unsafe_allow_html=True)
-                st.dataframe(preview_df, width="stretch", hide_index=False)
+                st.dataframe(
+                    preview_df, 
+                    width="stretch", 
+                    hide_index=False,
+                    column_config={
+                        "Points": st.column_config.NumberColumn(format="%.1f")
+                    }
+                )
 
                 # Unmatched warning
                 if unmatched:
