@@ -618,6 +618,18 @@ def clear_lineup_callback(team_name, players):
     lineups[team_name] = []
     save_lineups(lineups)
 
+def reorder_lineup(team_name, index, direction):
+    """Helper to move a player up or down in the session state ordered list."""
+    if "ordered_lineups" not in st.session_state:
+        return
+    xi = st.session_state.ordered_lineups[team_name][:] # copy
+    if direction == "up" and index > 0:
+        xi[index], xi[index-1] = xi[index-1], xi[index]
+    elif direction == "down" and index < len(xi) - 1:
+        xi[index], xi[index+1] = xi[index+1], xi[index]
+    
+    st.session_state.ordered_lineups[team_name] = xi
+
 
 def process_excel(file_bytes: bytes, squads: dict) -> tuple[list, list]:
     """Process uploaded Excel bytes → returns (mvp_rows, unmatched_players)."""
@@ -1203,11 +1215,11 @@ with tab7:
                 st.exception(e)
         else:
             st.markdown("""
-            <div style="border: 2px dashed rgba(99,102,241,0.3); border-radius: 12px; padding: 32px;
-                        text-align: center; color: #475569; margin-top: 8px;">
-                <div style="font-size:2rem;margin-bottom:8px">📂</div>
-                <div style="font-weight:600;color:#94a3b8">Drop your MVP.xlsx here</div>
-                <div style="font-size:0.8rem;margin-top:4px">or use the uploader above</div>
+            <div style="background: rgba(99,102,241,0.1); border-radius: 12px; padding: 24px;
+                        border: 1px solid rgba(99,102,241,0.3); text-align: center; margin-top: 8px;">
+                <div style="font-size:1.5rem;margin-bottom:8px">👆</div>
+                <div style="font-weight:600;color:#e2e8f0">Drag and drop MVP.xlsx directly into the uploader above</div>
+                <div style="font-size:0.8rem;color:#94a3b8;margin-top:4px">The standard file uploader handles drag actions automatically.</div>
             </div>
             """, unsafe_allow_html=True)
 
@@ -1360,23 +1372,38 @@ with tab9:
 
         selected_xi = current_ordered_xi
 
-        # Live Preview of Order
+        # Live Preview of Order with Interactive Controls
         if selected_xi:
-            st.markdown("<div style='margin-top:16px; margin-bottom:8px; font-weight:600; color:#94a3b8;'>Live Batting Order Preview:</div>", unsafe_allow_html=True)
-            preview_html = ""
+            st.markdown("<div style='margin-top:16px; margin-bottom:8px; font-weight:600; color:#94a3b8;'>Live Batting Order Preview (Reorder directly):</div>", unsafe_allow_html=True)
+            
             selected_pts = 0.0
             for idx, pname in enumerate(selected_xi):
                 # Find points for this player
                 p_pts = next((p["pts"] for p in player_data if p["name"] == pname), 0.0)
                 selected_pts += p_pts
                 pts_color = "#60a5fa" if p_pts > 0 else ("#ef4444" if p_pts < 0 else "#94a3b8")
-                preview_html += f"""
-                <div style="display:flex; justify-content:space-between; align-items:center; background:rgba(255,255,255,0.05); padding:6px 12px; border-radius:6px; margin-bottom:4px; border:1px solid rgba(255,255,255,0.1);">
-                    <span style="color:#e2e8f0; font-size:0.85rem;"><b style="color:#6366f1; margin-right:8px;">#{idx+1}</b> {pname}</span>
-                    <span style="color:{pts_color}; font-weight:700; font-size:0.85rem;">{p_pts:.1f} pts</span>
-                </div>
-                """
-            st.markdown(preview_html, unsafe_allow_html=True)
+                
+                # Create a row with player info and reorder buttons
+                row_cols = st.columns([0.1, 0.7, 0.1, 0.1])
+                with row_cols[0]:
+                    st.markdown(f"<div style='margin-top:10px; color:#6366f1; font-weight:800;'>#{idx+1}</div>", unsafe_allow_html=True)
+                with row_cols[1]:
+                    st.markdown(f"""
+                    <div style="background:rgba(255,255,255,0.05); padding:6px 12px; border-radius:6px; border:1px solid rgba(255,255,255,0.1); margin-top:2px;">
+                        <span style="color:#e2e8f0; font-size:0.85rem;">{pname}</span>
+                        <span style="color:{pts_color}; font-weight:700; font-size:0.75rem; float:right;">{p_pts:.1f} pts</span>
+                    </div>
+                    """, unsafe_allow_html=True)
+                with row_cols[2]:
+                    # Up button
+                    if st.button("⬆️", key=f"up_{edit_team}_{pname}", use_container_width=True, disabled=(idx==0)):
+                        reorder_lineup(edit_team, idx, "up")
+                        st.rerun()
+                with row_cols[3]:
+                    # Down button
+                    if st.button("⬇️", key=f"down_{edit_team}_{pname}", use_container_width=True, disabled=(idx==len(selected_xi)-1)):
+                        reorder_lineup(edit_team, idx, "down")
+                        st.rerun()
             
             # Display real-time total
             st.markdown(f"""
