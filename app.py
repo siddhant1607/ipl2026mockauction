@@ -474,6 +474,81 @@ code {
     padding: 2px 4px !important;
     border-radius: 4px !important;
 }
+
+/* ── Premium Player Card (Tab 2 Upgrade) ── */
+.player-card {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 16px 20px;
+    border-radius: 16px;
+    margin-bottom: 12px;
+    border: 1px solid rgba(255,255,255,0.08);
+    position: relative;
+    overflow: hidden;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+.player-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+}
+.player-card-logo-container {
+    position: relative;
+    width: 64px;
+    height: 64px;
+    flex-shrink: 0;
+}
+.player-card-logo {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.08);
+    padding: 6px;
+    border: 2px solid rgba(255,255,255,0.1);
+}
+.player-card-rank {
+    position: absolute;
+    top: -4px;
+    left: -4px;
+    background: #1e40af;
+    color: white;
+    font-size: 0.7rem;
+    font-weight: 800;
+    padding: 2px 6px;
+    border-radius: 8px;
+    border: 2px solid #0a0e1a;
+    z-index: 2;
+}
+.player-card-info {
+    flex: 1;
+}
+.player-card-name {
+    font-family: 'Poppins', sans-serif;
+    font-size: 1.15rem;
+    font-weight: 700;
+    color: #ffffff;
+    line-height: 1.2;
+}
+.player-card-team {
+    font-size: 0.82rem;
+    font-weight: 600;
+    margin-top: 2px;
+}
+.player-card-metrics {
+    text-align: right;
+}
+.player-card-points {
+    font-family: 'Poppins', sans-serif;
+    font-size: 1.3rem;
+    font-weight: 800;
+    line-height: 1;
+}
+.player-card-adjustment {
+    font-size: 0.78rem;
+    font-weight: 700;
+    margin-top: 4px;
+}
 </style>
 """, unsafe_allow_html=True)
 
@@ -833,23 +908,87 @@ with tab2:
     else:
         st.info("No player data available yet. Upload MVP data to get started.")
 
-    search = st.text_input("🔍 Search player", placeholder="Type a player name…")
-    filtered = df[df["player"].str.contains(search, case=False, na=False, regex=False)] if search else df
-    filtered = filtered.sort_values(by="impact", ascending=False).reset_index(drop=True)
-    filtered["Rank"] = filtered.index + 1
+    col_s1, col_s2 = st.columns([2, 1])
+    with col_s1:
+        search = st.text_input("🔍 Search player", placeholder="Type a player name…")
+    with col_s2:
+        sort_by = st.selectbox("Sort by", ["Points (High to Low)", "Points (Low to High)", "Name (A-Z)", "Team (A-Z)", "Adjustment (High to Low)", "Adjustment (Low to High)"])
 
-    display = filtered[["Rank", "player", "team", "impact", "offset"]].copy()
-    display.columns = ["Rank", "Player", "Team", "Points", "Adjustment"]
+    # ── Initial Sorting & Filter ──
+    # Rank is always based on impact points across all players
+    df_sorted = df.sort_values(by="impact", ascending=False).reset_index(drop=True)
+    df_sorted["Rank"] = df_sorted.index + 1
+    
+    filtered = df_sorted.copy()
+    if search:
+        filtered = filtered[filtered["player"].str.contains(search, case=False, na=False, regex=False)]
+    
+    # ── Re-sort filtered results if requested ──
+    if sort_by == "Points (Low to High)":
+        filtered = filtered.sort_values(by="impact", ascending=True)
+    elif sort_by == "Name (A-Z)":
+        filtered = filtered.sort_values(by="player", ascending=True)
+    elif sort_by == "Team (A-Z)":
+        filtered = filtered.sort_values(by="team", ascending=True)
+    elif sort_by == "Adjustment (High to Low)":
+        filtered = filtered.sort_values(by="offset", ascending=False)
+    elif sort_by == "Adjustment (Low to High)":
+        filtered = filtered.sort_values(by="offset", ascending=True)
+    # Default is the global Rank (Points desc)
+    
+    # ── Pagination ──
+    if "player_limit" not in st.session_state:
+        st.session_state.player_limit = 50
+    
+    display_list = filtered.head(st.session_state.player_limit)
 
-    st.dataframe(
-        display, 
-        width="stretch", 
-        hide_index=True,
-        column_config={
-            "Points": st.column_config.NumberColumn(format="%.1f"),
-            "Adjustment": st.column_config.NumberColumn(format="%.1f")
-        }
-    )
+    if display_list.empty:
+        st.info("No players found matching your criteria.")
+    else:
+        for _, row in display_list.iterrows():
+            name = row["player"]
+            team = row["team"]
+            pts = row["impact"]
+            offset = row["offset"]
+            rank = row["Rank"]
+            
+            c = TEAM_COLORS.get(team, {"bg": "#1e293b", "text": "#e2e8f0", "accent": "#60a5fa"})
+            logo_b64 = get_logo_b64(team)
+            logo_html = (
+                f'<img class="player-card-logo" src="data:image/png;base64,{logo_b64}" />'
+                if logo_b64 else 
+                f'<div class="player-card-logo" style="background:{c["bg"]}; display:flex; align-items:center; justify-content:center; color:{c["text"]}; font-size:1rem; font-weight:800;">{team[0]}</div>'
+            )
+            
+            # Offset color logic
+            if offset > 0:
+                off_color, off_prefix = "#4ade80", "+"
+            elif offset < 0:
+                off_color, off_prefix = "#f87171", "" # negative sign included in offset
+            else:
+                off_color, off_prefix = "#64748b", ""
+                
+            st.markdown(f"""
+            <div class="player-card" style="background: linear-gradient(135deg, {c['bg']}25, {c['bg']}08); border-color: {c['accent']}33;">
+                <div class="player-card-logo-container">
+                    <div class="player-card-rank">#{int(rank)}</div>
+                    {logo_html}
+                </div>
+                <div class="player-card-info">
+                    <div class="player-card-name">{name}</div>
+                    <div class="player-card-team" style="color: {c['accent']}">{TEAM_NAMES.get(team, team)}</div>
+                </div>
+                <div class="player-card-metrics">
+                    <div class="player-card-points" style="color: {c['accent']}">{pts:.1f}</div>
+                    <div class="player-card-adjustment" style="color: {off_color}">Adj: {off_prefix}{offset:.1f}</div>
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+
+        if len(filtered) > st.session_state.player_limit:
+            if st.button(f"Load more ({len(filtered) - st.session_state.player_limit} remaining)", use_container_width=True):
+                st.session_state.player_limit += 100
+                st.rerun()
 
 # ─────────────────────────────────────────────
 # 🏏 TEAMS

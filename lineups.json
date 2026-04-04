@@ -1,16 +1,32 @@
 {
-  "DC": [],
-  "SRH": [
-    "Tilak Varma",
-    "Tim David",
-    "Anukul Roy",
-    "Sai Sudharsan",
-    "Mohammed Shami",
-    "Kuldeep Sen",
-    "Sarfaraz Khan",
-    "Nehal Wadhera",
-    "Tim Seifert",
-    "Kanishk Chouhan",
-    "Shivang Kumar"
-  ]
+  "DC": [
+    "Pathum Nissanka",
+    "Cameron Green",
+    "Angkrish Raghuvanshi",
+    "Sameer Rizvi",
+    "Tristan Stubbs",
+    "Shivam Dube",
+    "Mukul Choudhary",
+    "Axar Patel",
+    "Kagiso Rabada",
+    "Kartik Tyagi",
+    "Kuldeep Yadav",
+    "Ashok Sharma"
+  ],
+  "RR": [],
+  "LSG": [
+    "Rohit Sharma",
+    "Shubman Gill",
+    "Rishabh Pant",
+    "Rajat Patidar",
+    "Jitesh Sharma",
+    "Krunal Pandya",
+    "Tejasvi Dahiya",
+    "Vipraj Nigam",
+    "Harsh Dubey",
+    "Jacob Duffy",
+    "Bhuvneshwar Kumar",
+    "Vaibhav Arora"
+  ],
+  "SRH": []
 }
