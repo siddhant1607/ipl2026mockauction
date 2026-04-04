@@ -4,6 +4,23 @@ A high-performance, visually stunning companion for your IPL 2026 Mock Auction. 
 
 ---
 
+## 🏗️ Project Structure
+
+The project is organized into modular components for better maintainability:
+
+- **`app.py`**: The main entry point and UI orchestrator.
+- **`modules/`**: Contains the core logic:
+  - `config.py`: Team configurations, colors, and names.
+  - `styles.py`: Custom CSS and design system.
+  - `db.py`: Database connection and state persistence.
+  - `data.py`: Data loading and processing logic.
+  - `ui.py`: Tab-specific rendering functions.
+  - `utils.py`: Shared helper functions and callbacks.
+- **`data/`**: Centralized storage for all JSON and Excel data files (`squads.json`, `lineups.json`, `mvp.json`, `MVP.xlsx`).
+- **`IPL LOGOS/`**: Official team branding assets.
+
+---
+
 ## 🚀 Quick Start: How to Fork & Deploy
 
 1.  **Fork the Repo**: Click the "Fork" button at the top of this repository to create your own copy.
@@ -29,7 +46,7 @@ This app supports two modes of operation. Choose the one that fits your event du
 
 ### **Mode A: Local JSON (GitHub Default)**
 *   **Best for**: 1-day sessions or running off your own laptop.
-*   **How it works**: Data is saved into `squads.json` and `lineups.json` on your hard drive.
+*   **How it works**: Data is saved into the `data/` directory.
 *   **⚠️ The Catch**: If you deploy to **Streamlit Community Cloud**, their servers "reset" every few days. Any changes you make via the website (like moving players) will be **wiped out** when the server reboots unless you manually copy-paste the JSON back to GitHub.
 
 ### **Mode B: Neon PostgreSQL (Professional/Persistent)**
@@ -67,7 +84,7 @@ All administrative tabs are protected by an `admin_password`. To configure your 
 | **📋 XI Leaderboard** | A specialized leaderboard that *only* counts points for the players in the active Playing XI. |
 | **🚫 Unsold** | Keep track of remaining talent in the auction pool. |
 | **🔄 Update Data** | **[ADMIN]** Upload a new `MVP.xlsx` file. The app automatically recalculates team scores by merging these points with your current squads in real-time. |
-| **👥 Edit Squads** | **[ADMIN]** A direct JSON editor to move players between teams. Includes duplicate player detection. |
+| **👥 Edit Squads** | **[ADMIN]** A direct JSON editor to move players between teams. Includes duplicate player detection and Point offset support (manually adjust points for any player/entity). |
 | **✏️ Edit Lineups** | **[ADMIN]** The command center for selecting your team's Playing XI (up to 13 players) and setting the batting order via click-sequence. |
 
 ---
@@ -80,10 +97,10 @@ All administrative tabs are protected by an `admin_password`. To configure your 
     ![Copying Data](assets/img1.png)
     *   Paste it into an empty Excel file, ensuring it has at least the **Player** and **Total Impact** columns.
     ![Pasting to Excel](assets/img3.png)
-    *   Save it as `MVP.xlsx` and upload it to the dashboard. The app handles the rest—no manual scripts required!
+    *   Save it as `MVP.xlsx` (in your `data/` folder) and upload it to the dashboard. The app handles the rest—no manual scripts required!
 
 3.  **Persistence Sync**: 
-    - **Neon Mode**: The app automatically handles saving every change to your cloud database. To keep your GitHub repository in sync, you can occasionally download the JSON from the dashboard (using the **📥 Download** buttons) and replace your local `squads.json`, `lineups.json`, `mvp.json`, and `master.json` files.
+    - **Neon Mode**: The app automatically handles saving every change to your cloud database. To keep your GitHub repository in sync, you can occasionally download the JSON from the dashboard (using the **📥 Download** buttons) and replace your files in the `data/` directory.
     - **GitHub Only Mode**: Since the Streamlit server resets periodically, you MUST manually download the JSON files from the dashboard and push them back into your GitHub repository to prevent data loss.
 
 ![Syncing Data back to GitHub](assets/img2.png)
