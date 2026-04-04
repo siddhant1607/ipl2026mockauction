@@ -15,6 +15,7 @@ TEAM_COLORS = {
     "RCB":  {"bg": "#CC0000", "text": "#FFFF00", "accent": "#FBBF24"},
     "RR":   {"bg": "#FF6699", "text": "#073763", "accent": "#F472B6"},
     "SRH":  {"bg": "#FF9900", "text": "#000000", "accent": "#FB923C"},
+    "Unsold": {"bg": "#1e293b", "text": "#ffffff", "accent": "#ffffff"},
 }
 
 TEAM_NAMES = {
@@ -28,6 +29,7 @@ TEAM_NAMES = {
     "RCB":  "Royal Challengers Bengaluru",
     "RR":   "Rajasthan Royals",
     "SRH":  "Sunrisers Hyderabad",
+    "Unsold": "Unsold Pool",
 }
 
 LOGO_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "IPL LOGOS")

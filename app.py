@@ -19,7 +19,7 @@ from modules.ui import (
 st.set_page_config(
     page_title="IPL 2026 Mock Auction Dashboard",
     layout="wide",
-    page_icon="🏏"
+    page_icon="IPL LOGOS/IPL.png"
 )
 
 # ─────────────────────────────────────────────

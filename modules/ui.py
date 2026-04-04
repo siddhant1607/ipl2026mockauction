@@ -331,25 +331,82 @@ def render_unsold_tab(df):
     st.markdown("<div class='section-sub'>Players not acquired in the mock auction</div>", unsafe_allow_html=True)
 
     unsold_df = df[df["team"] == "Unsold"].copy()
-    search_unsold = st.text_input("🔍 Search", placeholder="Filter unsold players…", key="unsold_search")
+    
+    col_u1, col_u2 = st.columns([2, 1])
+    with col_u1:
+        search_unsold = st.text_input("🔍 Search", placeholder="Filter unsold players…", key="unsold_search")
+    with col_u2:
+        sort_unsold = st.selectbox("Sort by", ["Points (High to Low)", "Points (Low to High)", "Name (A-Z)"], key="unsold_sort")
 
-    if search_unsold:
-        unsold_df = unsold_df[unsold_df["player"].str.contains(search_unsold, case=False, na=False, regex=False)]
-
+    # ── Initial Rank ──
+    # Rank for unsold is based on their points relative to other unsold players
     unsold_df = unsold_df.sort_values(by="impact", ascending=False).reset_index(drop=True)
     unsold_df["Rank"] = unsold_df.index + 1
 
-    display_unsold = unsold_df[["Rank", "player", "impact"]].copy()
-    display_unsold.columns = ["Rank", "Player", "Points"]
+    filtered = unsold_df.copy()
+    if search_unsold:
+        filtered = filtered[filtered["player"].str.contains(search_unsold, case=False, na=False, regex=False)]
 
-    st.dataframe(
-        display_unsold, 
-        width="stretch", 
-        hide_index=True,
-        column_config={
-            "Points": st.column_config.NumberColumn(format="%.1f")
-        }
-    )
+    if sort_unsold == "Points (Low to High)":
+        filtered = filtered.sort_values(by="impact", ascending=True)
+    elif sort_unsold == "Name (A-Z)":
+        filtered = filtered.sort_values(by="player", ascending=True)
+    # Default is Points desc
+
+    # ── Pagination ──
+    if "unsold_limit" not in st.session_state:
+        st.session_state.unsold_limit = 50
+    
+    display_list = filtered.head(st.session_state.unsold_limit)
+
+    if display_list.empty:
+        st.info("No unsold players found matching your criteria.")
+    else:
+        # Use config-based theme for unsold
+        c = TEAM_COLORS["Unsold"]
+        logo_b64 = get_logo_b64("UNSOLD")
+        logo_html = (
+            f'<img class="player-card-logo" src="data:image/png;base64,{logo_b64}" />'
+            if logo_b64 else 
+            f'<div class="player-card-logo" style="background:{c["bg"]}; display:flex; align-items:center; justify-content:center; color:{c["text"]}; font-size:1rem; font-weight:800;">UNSOLD</div>'
+        )
+
+        for _, row in display_list.iterrows():
+            name = row["player"]
+            pts = row["impact"]
+            rank = row["Rank"]
+            
+            # Unsold players typically have 0 adjustment (offset)
+            # but we can show it if it exists
+            offset = row.get("offset", 0.0)
+            if offset > 0:
+                off_color, off_prefix = "#4ade80", "+"
+            elif offset < 0:
+                off_color, off_prefix = "#f87171", "" 
+            else:
+                off_color, off_prefix = "#64748b", ""
+
+            st.markdown(f"""
+            <div class="player-card" style="background: linear-gradient(135deg, {c['accent']}18, {c['accent']}06); border-color: {c['accent']}33;">
+                <div class="player-card-logo-container">
+                    <div class="player-card-rank" style="background:#475569; border-color:#0f172a;">#{int(rank)}</div>
+                    {logo_html}
+                </div>
+                <div class="player-card-info">
+                    <div class="player-card-name" style="color:{c['text']}">{name}</div>
+                    <div class="player-card-team" style="color: {c['accent']}99">{TEAM_NAMES["Unsold"]}</div>
+                </div>
+                <div class="player-card-metrics">
+                    <div class="player-card-points" style="color: {c['accent']}">{pts:.1f}</div>
+                    <div class="player-card-adjustment" style="color: {off_color}">Adj: {off_prefix}{offset:.1f}</div>
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+
+        if len(filtered) > st.session_state.unsold_limit:
+            if st.button(f"Load more ({len(filtered) - st.session_state.unsold_limit} remaining)", use_container_width=True, key="unsold_load_more"):
+                st.session_state.unsold_limit += 100
+                st.rerun()
 
 def render_update_data_tab(squads):
     st.markdown("<div class='section-title'>🔄 Update Data</div>", unsafe_allow_html=True)
