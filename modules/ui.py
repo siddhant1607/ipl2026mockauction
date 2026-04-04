@@ -176,7 +176,7 @@ def render_players_tab(df):
         )
 
     st.markdown("---")
-    st.toggle("✨ Premium UI Cards", key="premium_ui_players", help="Disable this if the app is slow or crashing.")
+    st.toggle("✨ Premium UI Cards (Turn off for stable performance)", key="premium_ui_players", help="Disable this if the app is slow or crashing.")
 
 def render_teams_tab(df, squads):
     st.markdown("<div class='section-title'>🏏 Team Breakdown</div>", unsafe_allow_html=True)
@@ -446,7 +446,7 @@ def render_unsold_tab(df):
         )
 
     st.markdown("---")
-    st.toggle("✨ Premium UI Cards", key="premium_ui_unsold", help="Disable this if the app is slow or crashing.")
+    st.toggle("✨ Premium UI Cards (Turn off for stable performance)", key="premium_ui_unsold", help="Disable this if the app is slow or crashing.")
 
 def render_update_data_tab(squads):
     st.markdown("<div class='section-title'>🔄 Update Data</div>", unsafe_allow_html=True)
