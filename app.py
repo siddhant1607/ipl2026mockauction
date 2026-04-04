@@ -558,25 +558,49 @@ def load_squads():
 def load_data():
     """Construct the master DataFrame dynamically by merging MVP points and Squads."""
     mvp_list = load_mvp_points()
-    squads_dict = load_squads()
+    full_squads = load_squads()
+    
+    # Extract offsets if they exist
+    offsets = full_squads.get("__offsets__", {})
+    # Filter out metaladata keys for squad mapping
+    squads_only = {k: v for k, v in full_squads.items() if k != "__offsets__"}
     
     # Pre-map players to teams for fast lookup
     PLAYER_TO_TEAM = {
         p.lower(): team
-        for team, players in squads_dict.items()
+        for team, players in squads_only.items()
         for p in players
     }
     
+    processed_names = set()
     master_rows = []
     for item in mvp_list:
         name = item.get("player", "")
-        pts = item.get("impact", 0.0)
+        raw_pts = item.get("impact", 0.0)
+        offset = offsets.get(name, 0.0)
+        adj_pts = raw_pts + offset
+        
         team = PLAYER_TO_TEAM.get(name.lower(), "Unsold")
         master_rows.append({
             "player": name,
             "team": team,
-            "impact": pts
+            "impact": adj_pts,
+            "raw_impact": raw_pts,
+            "offset": offset
         })
+        processed_names.add(name.lower())
+        
+    # Add any manual adjustments for players/entities not in the MVP list
+    for name, offset in offsets.items():
+        if name.lower() not in processed_names:
+            team = PLAYER_TO_TEAM.get(name.lower(), "Unsold")
+            master_rows.append({
+                "player": name,
+                "team": team,
+                "impact": offset,
+                "raw_impact": 0.0,
+                "offset": offset
+            })
     
     return pd.DataFrame(master_rows)
 
@@ -668,7 +692,9 @@ def process_excel(file_bytes: bytes, squads: dict) -> tuple[list, list]:
     return mvp_rows, unmatched
 
 
-SQUADS = load_squads()
+FULL_SQUADS = load_squads()
+SQUADS = {k: v for k, v in FULL_SQUADS.items() if k != "__offsets__"}
+OFFSETS = FULL_SQUADS.get("__offsets__", {})
 df = load_data()
 
 # ─────────────────────────────────────────────
@@ -812,15 +838,16 @@ with tab2:
     filtered = filtered.sort_values(by="impact", ascending=False).reset_index(drop=True)
     filtered["Rank"] = filtered.index + 1
 
-    display = filtered[["Rank", "player", "team", "impact"]].copy()
-    display.columns = ["Rank", "Player", "Team", "Points"]
+    display = filtered[["Rank", "player", "team", "impact", "offset"]].copy()
+    display.columns = ["Rank", "Player", "Team", "Points", "Adjustment"]
 
     st.dataframe(
         display, 
         width="stretch", 
         hide_index=True,
         column_config={
-            "Points": st.column_config.NumberColumn(format="%.1f")
+            "Points": st.column_config.NumberColumn(format="%.1f"),
+            "Adjustment": st.column_config.NumberColumn(format="%.1f")
         }
     )
 
@@ -869,11 +896,13 @@ with tab3:
 
     for _, r in team_df.iterrows():
         pts = r["Points"]
+        p_name = r["Player"]
         pts_color = colors["accent"] if pts > 0 else ("#ef4444" if pts < 0 else "#64748b")
+        
         st.markdown(f"""
         <div class="player-row">
             <span class="player-rank-num">#{int(r['Rank'])}</span>
-            <span class="player-name">{r['Player']}</span>
+            <span class="player-name">{p_name}</span>
             <span class="player-pts" style="color:{pts_color}">{pts:.1f}</span>
         </div>
         """, unsafe_allow_html=True)
@@ -1240,13 +1269,13 @@ with tab8:
         st.error("❌ Incorrect password")
     else:
         st.success("✅ Access granted")
-        squads_json_str = json.dumps(SQUADS, indent=4)
+        squads_json_str = json.dumps(FULL_SQUADS, indent=4)
         
         edited_squads = st.text_area(
-            "Squads JSON",
+            "Squads JSON (including Adjustments)",
             value=squads_json_str,
             height=500,
-            help="Ensure this is valid JSON. The format must be a dictionary where keys are team names and values are lists of player names."
+            help="Ensure this is valid JSON. The format must be a dictionary where keys are team names and values are lists of player names. Special key '__offsets__' maps player names to point adjustments (positive to add, negative to deduct)."
         )
         
         if st.button("💾 Save Squads", type="primary", key="save_squads_btn"):
@@ -1254,10 +1283,10 @@ with tab8:
                 parsed_squads = json.loads(edited_squads)
                 
                 # Basic validation
-                if not isinstance(parsed_squads, dict):
-                    raise ValueError("Root element must be a dictionary.")
                 all_player_names = []
                 for team, players in parsed_squads.items():
+                    if team == "__offsets__":
+                        continue
                     if not isinstance(players, list):
                         raise ValueError(f"Value for team '{team}' must be a list of players.")
                     for p in players:
@@ -1283,11 +1312,11 @@ with tab8:
         # ── Download button ──
         st.markdown("<div style='height:12px'></div>", unsafe_allow_html=True)
         st.download_button(
-            label="📥 Download squads.json",
-            data=json.dumps(SQUADS, indent=2),
+            label="📥 Download squads.json (with offsets)",
+            data=json.dumps(FULL_SQUADS, indent=2),
             file_name="squads.json",
             mime="application/json",
-            key="dl_squads_btn"
+            key="dl_squads_btn_with_off"
         )
 
 # ─────────────────────────────────────────────
@@ -1347,28 +1376,29 @@ with tab9:
         # Sort players by points descending for convenience
         player_data.sort(key=lambda x: x["pts"], reverse=True)
         
-        chk_cols = st.columns(2)
-        for idx, item in enumerate(player_data):
-            pname = item["name"]
-            pts = item["pts"]
-            is_selected = pname in current_ordered_xi
-            
-            with chk_cols[idx % 2]:
-                # We check the box if they are in the ordered list
-                val = st.checkbox(f"{pname} • {pts:.1f} pts", value=is_selected, key=f"chk_{edit_team}_{pname}")
-                
-                # Detect changes and update the ordered list
-                if val and not is_selected:
-                    if len(current_ordered_xi) < xi_size:
-                        current_ordered_xi.append(pname)
-                        st.session_state.ordered_lineups[edit_team] = current_ordered_xi
-                        st.rerun()
-                    else:
-                        st.error(f"⚠️ Cannot select more than {xi_size} players.")
-                elif not val and is_selected:
-                    current_ordered_xi.remove(pname)
-                    st.session_state.ordered_lineups[edit_team] = current_ordered_xi
-                    st.rerun()
+        for i in range(0, len(player_data), 2):
+            chk_cols = st.columns(2)
+            for j in range(2):
+                if i + j < len(player_data):
+                    item = player_data[i + j]
+                    pname = item["name"]
+                    pts = item["pts"]
+                    is_selected = pname in current_ordered_xi
+                    
+                    with chk_cols[j]:
+                        val = st.checkbox(f"{pname} • {pts:.1f} pts", value=is_selected, key=f"chk_{edit_team}_{pname}")
+                        
+                        if val and not is_selected:
+                            if len(current_ordered_xi) < xi_size:
+                                current_ordered_xi.append(pname)
+                                st.session_state.ordered_lineups[edit_team] = current_ordered_xi
+                                st.rerun()
+                            else:
+                                st.error(f"⚠️ Cannot select more than {xi_size} players.")
+                        elif not val and is_selected:
+                            current_ordered_xi.remove(pname)
+                            st.session_state.ordered_lineups[edit_team] = current_ordered_xi
+                            st.rerun()
 
         selected_xi = current_ordered_xi
 
