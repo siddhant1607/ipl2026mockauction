@@ -48,6 +48,9 @@ def get_app_state(key: str):
 
 def run_migration():
     if USE_DATABASE:
+        if st.session_state.get("db_migrated"):
+            return
+            
         conn = get_db_connection()
         try:
             with conn.session as s:
@@ -71,5 +74,6 @@ def run_migration():
                     s.commit()
                 else:
                     s.commit()
+                st.session_state.db_migrated = True
         except Exception as e:
             st.error(f"Failed to synchronize with Neon DB: {e}")

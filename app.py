@@ -6,7 +6,7 @@ import os
 from modules.config import TEAM_COLORS, TEAM_NAMES
 from modules.styles import inject_custom_css
 from modules.db import run_migration
-from modules.data import load_squads, load_data, load_lineups
+from modules.data import load_squads, load_data, load_lineups, get_player_stats_dict
 from modules.ui import (
     render_leaderboard, render_players_tab, render_teams_tab,
     render_playing_xi_tab, render_xi_leaderboard_tab, render_unsold_tab,
@@ -32,6 +32,7 @@ run_migration()
 FULL_SQUADS = load_squads()
 SQUADS = {k: v for k, v in FULL_SQUADS.items() if k != "__offsets__"}
 df = load_data()
+player_stats = get_player_stats_dict(df)
 
 # ─────────────────────────────────────────────
 # HEADER
@@ -69,25 +70,41 @@ with col_h2:
         st.rerun()
 
 # ─────────────────────────────────────────────
-# TABS
+# NAVIGATION (Lazy Tabs)
 # ─────────────────────────────────────────────
-tabs = st.tabs([
+tab_options = [
     "🏆 Leaderboard", "📊 Players", "🏏 Teams", "⭐ Playing XIs",
     "📋 XI Leaderboard", "🚫 Unsold", "🔄 Update Data", "👥 Edit Squads", "✏️ Edit Lineups"
-])
-
-tab_renders = [
-    lambda: render_leaderboard(df, SQUADS),
-    lambda: render_players_tab(df),
-    lambda: render_teams_tab(df, SQUADS),
-    lambda: render_playing_xi_tab(df, SQUADS),
-    lambda: render_xi_leaderboard_tab(df, SQUADS),
-    lambda: render_unsold_tab(df),
-    lambda: render_update_data_tab(SQUADS),
-    lambda: render_edit_squads_tab(FULL_SQUADS),
-    lambda: render_edit_lineups_tab(SQUADS, df)
 ]
 
-for tab, render_func in zip(tabs, tab_renders):
-    with tab:
-        render_func()
+# Use segmented_control for a premium, performant, and lazy-loading tab experience
+selected_tab = st.segmented_control(
+    "Navigation",
+    options=tab_options,
+    default="🏆 Leaderboard",
+    label_visibility="collapsed"
+)
+
+st.markdown("<div style='margin-bottom: 24px;'></div>", unsafe_allow_html=True)
+
+# ─────────────────────────────────────────────
+# TAB RENDERING (Only runs the active tab)
+# ─────────────────────────────────────────────
+if selected_tab == "🏆 Leaderboard":
+    render_leaderboard(df, SQUADS)
+elif selected_tab == "📊 Players":
+    render_players_tab(df)
+elif selected_tab == "🏏 Teams":
+    render_teams_tab(df, SQUADS, player_stats)
+elif selected_tab == "⭐ Playing XIs":
+    render_playing_xi_tab(df, SQUADS, player_stats)
+elif selected_tab == "📋 XI Leaderboard":
+    render_xi_leaderboard_tab(df, SQUADS, player_stats)
+elif selected_tab == "🚫 Unsold":
+    render_unsold_tab(df)
+elif selected_tab == "🔄 Update Data":
+    render_update_data_tab(SQUADS)
+elif selected_tab == "👥 Edit Squads":
+    render_edit_squads_tab(FULL_SQUADS)
+elif selected_tab == "✏️ Edit Lineups":
+    render_edit_lineups_tab(SQUADS, df, player_stats)

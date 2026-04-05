@@ -4,7 +4,7 @@ import json
 import os
 from .config import TEAM_COLORS, TEAM_NAMES
 from .utils import get_logo_b64, reorder_lineup, clear_lineup_callback
-from .data import load_lineups, save_lineups, process_excel, set_app_state
+from .data import load_lineups, save_lineups, process_excel, set_app_state, process_text
 
 def render_leaderboard(df, squads):
     st.markdown("<div class='section-title'>🏆 Squad Points Standings</div>", unsafe_allow_html=True)
@@ -118,6 +118,9 @@ def render_players_tab(df):
         if display_list.empty:
             st.info("No players found matching your criteria.")
         else:
+            # Cache logo once for the display list to avoid repeating huge base64 strings
+            logo_cache = {}
+            
             for _, row in display_list.iterrows():
                 name = row["player"]
                 team = row["team"]
@@ -126,7 +129,11 @@ def render_players_tab(df):
                 rank = row["Rank"]
                 
                 c = TEAM_COLORS.get(team, {"bg": "#1e293b", "text": "#e2e8f0", "accent": "#60a5fa"})
-                logo_b64 = get_logo_b64(team)
+                
+                if team not in logo_cache:
+                    logo_cache[team] = get_logo_b64(team)
+                
+                logo_b64 = logo_cache[team]
                 logo_html = (
                     f'<img class="player-card-logo" src="data:image/png;base64,{logo_b64}" />'
                     if logo_b64 else 
@@ -178,7 +185,7 @@ def render_players_tab(df):
     st.markdown("---")
     st.toggle("✨ Premium UI Cards (Turn off for stable performance)", key="premium_ui_players", help="Disable this if the app is slow or crashing.")
 
-def render_teams_tab(df, squads):
+def render_teams_tab(df, squads, player_stats=None):
     st.markdown("<div class='section-title'>🏏 Team Breakdown</div>", unsafe_allow_html=True)
 
     team = st.selectbox("Select Team", list(squads.keys()), format_func=lambda t: f"{t} — {TEAM_NAMES.get(t, t)}")
@@ -206,8 +213,11 @@ def render_teams_tab(df, squads):
 
     rows = []
     for p in players:
-        match = df[df["player"].str.contains(p, case=False, na=False, regex=False)]
-        pts = match.iloc[0]["impact"] if not match.empty else 0.0
+        if player_stats and p.lower() in player_stats:
+            pts = player_stats[p.lower()]["impact"]
+        else:
+            match = df[df["player"].str.contains(p, case=False, na=False, regex=False)]
+            pts = match.iloc[0]["impact"] if not match.empty else 0.0
         rows.append({"Player": p, "Points": pts})
 
     team_df = pd.DataFrame(rows).sort_values(by="Points", ascending=False).reset_index(drop=True)
@@ -237,7 +247,7 @@ def render_teams_tab(df, squads):
     </div>
     """, unsafe_allow_html=True)
 
-def render_playing_xi_tab(df, squads):
+def render_playing_xi_tab(df, squads, player_stats=None):
     st.markdown("<div class='section-title'>⭐ Playing XIs</div>", unsafe_allow_html=True)
     st.markdown("<div class='section-sub'>View selected playing lineups for each team</div>", unsafe_allow_html=True)
 
@@ -265,8 +275,11 @@ def render_playing_xi_tab(df, squads):
 
                     if xi:
                         for idx, p in enumerate(xi):
-                            match = df[df["player"].str.contains(p, case=False, na=False, regex=False)]
-                            pts = match.iloc[0]["impact"] if not match.empty else 0.0
+                            if player_stats and p.lower() in player_stats:
+                                pts = player_stats[p.lower()]["impact"]
+                            else:
+                                match = df[df["player"].str.contains(p, case=False, na=False, regex=False)]
+                                pts = match.iloc[0]["impact"] if not match.empty else 0.0
                             xi_total += pts
                             pts_color = c["accent"] if pts > 0 else ("#ef4444" if pts < 0 else "#94a3b8")
                             xi_rows_html += f'<div class="lineup-player"><span style="color:#e2e8f0;"><b style="color:{c["accent"]};margin-right:8px;">#{idx+1}</b> {p}</span><span style="font-weight:700;color:{pts_color}">{pts:.1f}</span></div>'
@@ -288,7 +301,7 @@ def render_playing_xi_tab(df, squads):
                     </div>
                     """, unsafe_allow_html=True)
 
-def render_xi_leaderboard_tab(df, squads):
+def render_xi_leaderboard_tab(df, squads, player_stats=None):
     st.markdown("<div class='section-title'>📋 Playing XI Leaderboard</div>", unsafe_allow_html=True)
     st.markdown("<div class='section-sub'>Team Standings based on playing lineups only</div>", unsafe_allow_html=True)
     lineups = load_lineups()
@@ -300,9 +313,12 @@ def render_xi_leaderboard_tab(df, squads):
             continue
         total = 0.0
         for p in xi:
-            match = df[df["player"].str.contains(p, case=False, na=False, regex=False)]
-            if not match.empty:
-                total += match.iloc[0]["impact"]
+            if player_stats and p.lower() in player_stats:
+                total += player_stats[p.lower()]["impact"]
+            else:
+                match = df[df["player"].str.contains(p, case=False, na=False, regex=False)]
+                if not match.empty:
+                    total += match.iloc[0]["impact"]
         xi_standings.append({"team": team_key, "points": total, "size": len(xi)})
 
     if not xi_standings:
@@ -386,12 +402,12 @@ def render_unsold_tab(df):
         if display_list.empty:
             st.info("No unsold players found matching your criteria.")
         else:
-            # Use config-based theme for unsold
+            # Define unsold logo once to avoid redundant base64 strings in the HTML payload
+            unsold_logo_b64 = get_logo_b64("UNSOLD")
             c = TEAM_COLORS["Unsold"]
-            logo_b64 = get_logo_b64("UNSOLD")
-            logo_html = (
-                f'<img class="player-card-logo" src="data:image/png;base64,{logo_b64}" />'
-                if logo_b64 else 
+            unsold_logo_html = (
+                f'<img class="player-card-logo" src="data:image/png;base64,{unsold_logo_b64}" />'
+                if unsold_logo_b64 else 
                 f'<div class="player-card-logo" style="background:{c["bg"]}; display:flex; align-items:center; justify-content:center; color:{c["text"]}; font-size:1rem; font-weight:800;">UNSOLD</div>'
             )
 
@@ -414,7 +430,7 @@ def render_unsold_tab(df):
                 <div class="player-card" style="background: linear-gradient(135deg, {c['accent']}18, {c['accent']}06); border-color: {c['accent']}33;">
                     <div class="player-card-logo-container">
                         <div class="player-card-rank" style="background:#475569; border-color:#0f172a;">#{int(rank)}</div>
-                        {logo_html}
+                        {unsold_logo_html}
                     </div>
                     <div class="player-card-info">
                         <div class="player-card-name" style="color:{c['text']}">{name}</div>
@@ -492,37 +508,80 @@ def render_update_data_tab(squads):
 
     else:
         st.success("✅ Access granted")
-        uploaded = st.file_uploader("Upload MVP.xlsx", type=["xlsx"])
+        
+        update_method = st.radio("Update Method", ["Upload Excel", "Paste Text"], horizontal=True)
 
-        if uploaded is not None:
-            file_bytes = uploaded.read()
-            try:
-                with st.spinner("Parsing Excel…"):
-                    mvp_rows, unmatched = process_excel(file_bytes, squads)
+        mvp_rows = []
+        unmatched = []
+        file_to_save = None
 
-                st.markdown("<div class='section-title' style='font-size:1.1rem;margin-top:16px'>📋 Preview</div>", unsafe_allow_html=True)
-                col_prev1, col_prev2, col_prev3 = st.columns(3)
-                with col_prev1:
-                    st.markdown(f'<div class="metric-card"><div class="metric-value">{len(mvp_rows)}</div><div class="metric-label">Players parsed</div></div>', unsafe_allow_html=True)
-                with col_prev2:
-                    matched_count = len(mvp_rows) - len(unmatched)
-                    st.markdown(f'<div class="metric-card"><div class="metric-value" style="color:#48bb78">{matched_count}</div><div class="metric-label">Matched to squads</div></div>', unsafe_allow_html=True)
-                with col_prev3:
-                    st.markdown(f'<div class="metric-card"><div class="metric-value" style="color:#f6ad55">{len(unmatched)}</div><div class="metric-label">Unsold</div></div>', unsafe_allow_html=True)
+        if update_method == "Upload Excel":
+            uploaded = st.file_uploader("Upload MVP.xlsx", type=["xlsx"])
+            if uploaded is not None:
+                file_to_save = uploaded.read()
+                try:
+                    with st.spinner("Parsing Excel…"):
+                        mvp_rows, unmatched = process_excel(file_to_save, squads)
+                except Exception as e:
+                    st.error(f"Error parsing Excel: {e}")
+        else:
+            pasted_text = st.text_area("Paste MVP Data", height=300, placeholder="Rank\nPlayer Info\nName\nTeam\nStats...")
+            if pasted_text:
+                try:
+                    with st.spinner("Processing Text…"):
+                        mvp_rows, unmatched = process_text(pasted_text, squads)
+                except Exception as e:
+                    st.error(f"Error processing text: {e}")
 
-                if st.button("💾 Save & Update Dashboard", type="primary"):
-                    base_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data")
-                    with open(os.path.join(base_dir, "mvp.json"), "w") as f:
-                        json.dump(mvp_rows, f, indent=2)
-                    set_app_state("mvp", mvp_rows)
+        if mvp_rows:
+            st.markdown("<div class='section-title' style='font-size:1.1rem;margin-top:16px'>📋 Preview</div>", unsafe_allow_html=True)
+            col_prev1, col_prev2, col_prev3 = st.columns(3)
+            with col_prev1:
+                st.markdown(f'<div class="metric-card"><div class="metric-value">{len(mvp_rows)}</div><div class="metric-label">Players parsed</div></div>', unsafe_allow_html=True)
+            with col_prev2:
+                matched_count = len(mvp_rows) - len(unmatched)
+                st.markdown(f'<div class="metric-card"><div class="metric-value" style="color:#48bb78">{matched_count}</div><div class="metric-label">Matched to squads</div></div>', unsafe_allow_html=True)
+            with col_prev3:
+                st.markdown(f'<div class="metric-card"><div class="metric-value" style="color:#f6ad55">{len(unmatched)}</div><div class="metric-label">Unsold</div></div>', unsafe_allow_html=True)
+
+            with st.expander("🔍 View Detailed Parsed List"):
+                squads_only = {k: v for k, v in squads.items() if k != "__offsets__"}
+                p_to_t = {p.lower(): team for team, players in squads_only.items() for p in players}
+                
+                preview_data = []
+                for row in mvp_rows:
+                    team_key = p_to_t.get(row["player"].lower(), "Unsold")
+                    preview_data.append({
+                        "Player": row["player"],
+                        "Team": TEAM_NAMES.get(team_key, team_key),
+                        "Points": row["impact"]
+                    })
+                
+                st.dataframe(
+                    pd.DataFrame(preview_data),
+                    use_container_width=True,
+                    hide_index=True,
+                    column_config={
+                        "Points": st.column_config.NumberColumn(format="%.1f")
+                    }
+                )
+
+            if st.button("💾 Save & Update Dashboard", type="primary"):
+                base_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data")
+                with open(os.path.join(base_dir, "mvp.json"), "w") as f:
+                    json.dump(mvp_rows, f, indent=2)
+                set_app_state("mvp", mvp_rows)
+                
+                # If we have file bytes, save them as MVP.xlsx
+                if file_to_save:
                     with open(os.path.join(base_dir, "MVP.xlsx"), "wb") as f:
-                        f.write(file_bytes)
-                    st.success("✅ Updated!")
-                    st.cache_data.clear()
-                    st.rerun()
-
-            except Exception as e:
-                st.error(f"Error parsing Excel: {e}")
+                        f.write(file_to_save)
+                
+                st.success("✅ Updated!")
+                st.cache_data.clear()
+                st.rerun()
+        elif update_method == "Paste Text" and pasted_text:
+            st.warning("⚠️ No valid player data found in the pasted text. Please check the format.")
 
 def render_edit_squads_tab(full_squads):
     st.markdown("<div class='section-title'>👥 Edit Squads</div>", unsafe_allow_html=True)
@@ -550,7 +609,7 @@ def render_edit_squads_tab(full_squads):
             except Exception as e:
                 st.error(f"Error saving: {e}")
 
-def render_edit_lineups_tab(squads, df):
+def render_edit_lineups_tab(squads, df, player_stats=None):
     st.markdown("<div class='section-title'>✏️ Edit Playing Lineups</div>", unsafe_allow_html=True)
     pwd = st.text_input("🔐 Enter Admin password", type="password", key="xi_pwd")
     correct_pwd = st.secrets.get("admin_password")
@@ -573,8 +632,11 @@ def render_edit_lineups_tab(squads, df):
         
         player_data = []
         for p in squad_options:
-            match = df[df["player"].str.contains(p, case=False, na=False, regex=False)]
-            pts = match.iloc[0]["impact"] if not match.empty else 0.0
+            if player_stats and p.lower() in player_stats:
+                pts = player_stats[p.lower()]["impact"]
+            else:
+                match = df[df["player"].str.contains(p, case=False, na=False, regex=False)]
+                pts = match.iloc[0]["impact"] if not match.empty else 0.0
             player_data.append({"name": p, "pts": pts})
         
         player_data.sort(key=lambda x: x["pts"], reverse=True)

@@ -4,12 +4,24 @@
     "impact": 190.6
   },
   {
+    "player": "Harsh Dubey",
+    "impact": 162.9
+  },
+  {
+    "player": "Mohammed Shami",
+    "impact": 141.8
+  },
+  {
+    "player": "Nitish Kumar Reddy",
+    "impact": 133.8
+  },
+  {
     "player": "Rohit Sharma",
     "impact": 126.1
   },
   {
-    "player": "Ishan Kishan",
-    "impact": 123.9
+    "player": "Heinrich Klaasen",
+    "impact": 124.2
   },
   {
     "player": "Jacob Duffy",
@@ -28,12 +40,20 @@
     "impact": 118.9
   },
   {
+    "player": "Ishan Kishan",
+    "impact": 118.7
+  },
+  {
     "player": "Cooper Connolly",
     "impact": 116.4
   },
   {
     "player": "Nandre Burger",
     "impact": 109.0
+  },
+  {
+    "player": "Prince Yadav",
+    "impact": 107.5
   },
   {
     "player": "Marco Jansen",
@@ -80,10 +100,6 @@
     "impact": 82.7
   },
   {
-    "player": "Harsh Dubey",
-    "impact": 82.6
-  },
-  {
     "player": "T Natarajan",
     "impact": 82.4
   },
@@ -94,10 +110,6 @@
   {
     "player": "Devdutt Padikkal",
     "impact": 80.7
-  },
-  {
-    "player": "Jaydev Unadkat",
-    "impact": 80.2
   },
   {
     "player": "Sarfaraz Khan",
@@ -124,6 +136,10 @@
     "impact": 69.2
   },
   {
+    "player": "Rishabh Pant",
+    "impact": 68.5
+  },
+  {
     "player": "Jofra Archer",
     "impact": 68.0
   },
@@ -136,20 +152,32 @@
     "impact": 65.9
   },
   {
+    "player": "Eshan Malinga",
+    "impact": 65.3
+  },
+  {
     "player": "Suryakumar Yadav",
     "impact": 65.3
   },
   {
-    "player": "Prince Yadav",
-    "impact": 64.6
+    "player": "Travis Head",
+    "impact": 65.1
   },
   {
-    "player": "Travis Head",
-    "impact": 63.2
+    "player": "Aiden Markram",
+    "impact": 64.4
+  },
+  {
+    "player": "Abdul Samad",
+    "impact": 61.7
   },
   {
     "player": "Angkrish Raghuvanshi",
     "impact": 61.3
+  },
+  {
+    "player": "Jaydev Unadkat",
+    "impact": 61.2
   },
   {
     "player": "Jasprit Bumrah",
@@ -164,16 +192,12 @@
     "impact": 58.5
   },
   {
-    "player": "Aniket Verma",
-    "impact": 58.3
-  },
-  {
     "player": "Xavier Bartlett",
     "impact": 56.7
   },
   {
-    "player": "Nitish Kumar Reddy",
-    "impact": 52.6
+    "player": "Mitchell Marsh",
+    "impact": 52.9
   },
   {
     "player": "Virat Kohli",
@@ -184,12 +208,12 @@
     "impact": 52.4
   },
   {
-    "player": "Abhishek Sharma",
-    "impact": 51.9
-  },
-  {
     "player": "Mitchell Santner",
     "impact": 50.1
+  },
+  {
+    "player": "Aniket Verma",
+    "impact": 49.7
   },
   {
     "player": "Vaibhav Arora",
@@ -200,20 +224,20 @@
     "impact": 49.5
   },
   {
-    "player": "Abdul Samad",
-    "impact": 48.2
+    "player": "Abhishek Sharma",
+    "impact": 48.3
   },
   {
     "player": "Mohsin Khan",
     "impact": 47.1
   },
   {
-    "player": "Sunil Narine",
-    "impact": 45.9
+    "player": "Shivang Kumar",
+    "impact": 46.8
   },
   {
-    "player": "Heinrich Klaasen",
-    "impact": 45.6
+    "player": "Sunil Narine",
+    "impact": 45.9
   },
   {
     "player": "Deepak Chahar",
@@ -222,10 +246,6 @@
   {
     "player": "Blessing Muzarabani",
     "impact": 42.9
-  },
-  {
-    "player": "Mitchell Marsh",
-    "impact": 42.7
   },
   {
     "player": "Tristan Stubbs",
@@ -260,10 +280,6 @@
     "impact": 38.1
   },
   {
-    "player": "Mohammed Shami",
-    "impact": 37.7
-  },
-  {
     "player": "Hardik Pandya",
     "impact": 37.0
   },
@@ -280,6 +296,10 @@
     "impact": 35.9
   },
   {
+    "player": "Avesh Khan",
+    "impact": 34.6
+  },
+  {
     "player": "Matt Henry",
     "impact": 31.6
   },
@@ -292,6 +312,10 @@
     "impact": 31.4
   },
   {
+    "player": "Manimaran Siddharth",
+    "impact": 29.8
+  },
+  {
     "player": "Corbin Bosch",
     "impact": 29.5
   },
@@ -302,10 +326,6 @@
   {
     "player": "Sandeep Sharma",
     "impact": 24.6
-  },
-  {
-    "player": "Eshan Malinga",
-    "impact": 24.3
   },
   {
     "player": "Trent Boult",
@@ -322,6 +342,10 @@
   {
     "player": "Shimron Hetmyer",
     "impact": 22.5
+  },
+  {
+    "player": "Harshal Patel",
+    "impact": 21.9
   },
   {
     "player": "Brijesh Sharma",
@@ -342,10 +366,6 @@
   {
     "player": "Kartik Sharma",
     "impact": 19.3
-  },
-  {
-    "player": "Mukul Choudhary",
-    "impact": 19.1
   },
   {
     "player": "Mohammed Siraj",
@@ -384,6 +404,10 @@
     "impact": 12.3
   },
   {
+    "player": "Mukul Choudhary",
+    "impact": 11.0
+  },
+  {
     "player": "Tim David",
     "impact": 10.1
   },
@@ -396,20 +420,8 @@
     "impact": 9.9
   },
   {
-    "player": "Shivang Kumar",
-    "impact": 8.1
-  },
-  {
     "player": "Glenn Phillips",
     "impact": 8.1
-  },
-  {
-    "player": "Aiden Markram",
-    "impact": 7.4
-  },
-  {
-    "player": "Nicholas Pooran",
-    "impact": 6.5
   },
   {
     "player": "Noor Ahmad",
@@ -418,6 +430,10 @@
   {
     "player": "Rahul Chahar",
     "impact": 4.9
+  },
+  {
+    "player": "Ayush Badoni",
+    "impact": 4.6
   },
   {
     "player": "Nitish Rana",
@@ -440,7 +456,7 @@
     "impact": 1.5
   },
   {
-    "player": "Rishabh Pant",
+    "player": "Digvesh Rathi",
     "impact": 1.2
   },
   {
@@ -452,6 +468,14 @@
     "impact": 1.0
   },
   {
+    "player": "Nicholas Pooran",
+    "impact": 0.9
+  },
+  {
+    "player": "Liam Livingstone",
+    "impact": 0.8
+  },
+  {
     "player": "Krunal Pandya",
     "impact": -0.6
   },
@@ -460,20 +484,12 @@
     "impact": -1.3
   },
   {
-    "player": "Harshal Patel",
-    "impact": -3.7
-  },
-  {
     "player": "Sherfane Rutherford",
     "impact": -4.1
   },
   {
     "player": "Mayank Markande",
     "impact": -4.8
-  },
-  {
-    "player": "Ayush Badoni",
-    "impact": -5.1
   },
   {
     "player": "KL Rahul",
@@ -510,5 +526,9 @@
   {
     "player": "Prashant Veer",
     "impact": -9.1
+  },
+  {
+    "player": "Team\tM\tW\tL\tPTS\tNRR",
+    "impact": 2.0
   }
 ]
