@@ -9,10 +9,12 @@ from sqlalchemy import text
 # ─────────────────────────────────────────────
 # CONFIG
 # ─────────────────────────────────────────────
+LOGO_DIR = os.path.join(os.path.dirname(__file__), "IPL LOGOS")
+
 st.set_page_config(
     page_title="IPL 2026 Mock Auction Dashboard",
     layout="wide",
-    page_icon="🏏"
+    page_icon=os.path.join(LOGO_DIR, "IPL.png") if os.path.exists(os.path.join(LOGO_DIR, "IPL.png")) else "🏏"
 )
 
 # ─────────────────────────────────────────────
@@ -30,6 +32,7 @@ TEAM_COLORS = {
     "RCB":  {"bg": "#CC0000", "text": "#FFFF00", "accent": "#FBBF24"},  # dark red → use amber
     "RR":   {"bg": "#FF6699", "text": "#073763", "accent": "#F472B6"},
     "SRH":  {"bg": "#FF9900", "text": "#000000", "accent": "#FB923C"},
+    "Unsold": {"bg": "#ffffff22", "text": "#FFFFFF", "accent": "#FFFFFF"},
 }
 
 TEAM_NAMES = {
@@ -45,7 +48,6 @@ TEAM_NAMES = {
     "SRH":  "Sunrisers Hyderabad",
 }
 
-LOGO_DIR = os.path.join(os.path.dirname(__file__), "IPL LOGOS")
 
 @st.cache_data
 def get_logo_b64(team: str) -> str:
@@ -908,11 +910,13 @@ with tab2:
     else:
         st.info("No player data available yet. Upload MVP data to get started.")
 
-    col_s1, col_s2 = st.columns([2, 1])
+    col_s1, col_s2, col_s3 = st.columns([2, 1, 1])
     with col_s1:
         search = st.text_input("🔍 Search player", placeholder="Type a player name…")
     with col_s2:
         sort_by = st.selectbox("Sort by", ["Points (High to Low)", "Points (Low to High)", "Name (A-Z)", "Team (A-Z)", "Adjustment (High to Low)", "Adjustment (Low to High)"])
+    with col_s3:
+        classical_ui = st.checkbox("💾 Classical UI", value=False, help="Use standard dataframes for better performance")
 
     # ── Initial Sorting & Filter ──
     # Rank is always based on impact points across all players
@@ -938,13 +942,25 @@ with tab2:
     
     # ── Pagination ──
     if "player_limit" not in st.session_state:
-        st.session_state.player_limit = 50
+        st.session_state.player_limit = 25
     
     display_list = filtered.head(st.session_state.player_limit)
 
-    if display_list.empty:
-        st.info("No players found matching your criteria.")
+    if classical_ui:
+        # ── Classical UI (Dataframe) ──
+        st.dataframe(
+            filtered.head(st.session_state.player_limit)[["Rank", "player", "team", "impact", "offset"]],
+            width="stretch",
+            hide_index=True,
+            column_config={
+                "impact": st.column_config.NumberColumn("Points", format="%.1f"),
+                "offset": st.column_config.NumberColumn("Adj", format="%.1f"),
+                "player": "Name",
+                "team": "Squad"
+            }
+        )
     else:
+        # ── Premium UI (Cards) ──
         for _, row in display_list.iterrows():
             name = row["player"]
             team = row["team"]
@@ -985,10 +1001,10 @@ with tab2:
             </div>
             """, unsafe_allow_html=True)
 
-        if len(filtered) > st.session_state.player_limit:
-            if st.button(f"Load more ({len(filtered) - st.session_state.player_limit} remaining)", use_container_width=True):
-                st.session_state.player_limit += 100
-                st.rerun()
+    if len(filtered) > st.session_state.player_limit:
+        if st.button(f"Load more ({len(filtered) - st.session_state.player_limit} remaining)", use_container_width=True):
+            st.session_state.player_limit += 25
+            st.rerun()
 
 # ─────────────────────────────────────────────
 # 🏏 TEAMS
@@ -1183,25 +1199,83 @@ with tab6:
     st.markdown("<div class='section-sub'>Players not acquired in the mock auction</div>", unsafe_allow_html=True)
 
     unsold_df = df[df["team"] == "Unsold"].copy()
-    search_unsold = st.text_input("🔍 Search", placeholder="Filter unsold players…", key="unsold_search")
+    
+    col_u1, col_u2, col_u3 = st.columns([2, 1, 1])
+    with col_u1:
+        search_unsold = st.text_input("🔍 Search", placeholder="Filter unsold players…", key="unsold_search")
+    with col_u2:
+        sort_unsold = st.selectbox("Sort by", ["Points (High to Low)", "Points (Low to High)", "Name (A-Z)"], key="unsold_sort")
+    with col_u3:
+        classical_ui_unsold = st.checkbox("💾 Classical UI", value=False, key="unsold_classic", help="Use standard dataframes for better performance")
 
     if search_unsold:
         unsold_df = unsold_df[unsold_df["player"].str.contains(search_unsold, case=False, na=False, regex=False)]
 
-    unsold_df = unsold_df.sort_values(by="impact", ascending=False).reset_index(drop=True)
+    if sort_unsold == "Points (High to Low)":
+        unsold_df = unsold_df.sort_values(by="impact", ascending=False)
+    elif sort_unsold == "Points (Low to High)":
+        unsold_df = unsold_df.sort_values(by="impact", ascending=True)
+    elif sort_unsold == "Name (A-Z)":
+        unsold_df = unsold_df.sort_values(by="player", ascending=True)
+
+    unsold_df = unsold_df.reset_index(drop=True)
     unsold_df["Rank"] = unsold_df.index + 1
 
-    display_unsold = unsold_df[["Rank", "player", "impact"]].copy()
-    display_unsold.columns = ["Rank", "Player", "Points"]
+    # ── Pagination ──
+    if "unsold_limit" not in st.session_state:
+        st.session_state.unsold_limit = 25
+    
+    display_unsold = unsold_df.head(st.session_state.unsold_limit)
 
-    st.dataframe(
-        display_unsold, 
-        width="stretch", 
-        hide_index=True,
-        column_config={
-            "Points": st.column_config.NumberColumn(format="%.1f")
-        }
-    )
+    if display_unsold.empty:
+        st.info("No unsold players found.")
+    else:
+        if classical_ui_unsold:
+            st.dataframe(
+                display_unsold[["Rank", "player", "impact"]], 
+                width="stretch", 
+                hide_index=True,
+                column_config={
+                    "Rank": st.column_config.NumberColumn(format="%d"),
+                    "player": "Player",
+                    "impact": st.column_config.NumberColumn("Points", format="%.1f")
+                }
+            )
+        else:
+            for _, row in display_unsold.iterrows():
+                name = row["player"]
+                pts = row["impact"]
+                rank = row["Rank"]
+                
+                # Use UNSOLD logo and white accent
+                c = TEAM_COLORS.get("Unsold", {"bg": "#1e293b", "text": "#ffffff", "accent": "#ffffff"})
+                logo_b64 = get_logo_b64("UNSOLD")
+                logo_html = (
+                    f'<img class="player-card-logo" src="data:image/png;base64,{logo_b64}" />'
+                    if logo_b64 else 
+                    f'<div class="player-card-logo" style="background:{c["bg"]}; display:flex; align-items:center; justify-content:center; color:{c["text"]}; font-size:1rem; font-weight:800;">U</div>'
+                )
+                
+                st.markdown(f"""
+                <div class="player-card" style="background: linear-gradient(135deg, {c['bg']}, {c['bg']}08); border-color: {c['accent']}33;">
+                    <div class="player-card-logo-container">
+                        <div class="player-card-rank">#{int(rank)}</div>
+                        {logo_html}
+                    </div>
+                    <div class="player-card-info">
+                        <div class="player-card-name">{name}</div>
+                        <div class="player-card-team" style="color: {c['accent']}">Unsold / Free Agent</div>
+                    </div>
+                    <div class="player-card-metrics">
+                        <div class="player-card-points" style="color: {c['accent']}">{pts:.1f}</div>
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
+
+        if len(unsold_df) > st.session_state.unsold_limit:
+            if st.button(f"Load more ({len(unsold_df) - st.session_state.unsold_limit} remaining)", use_container_width=True, key="unsold_load_more"):
+                st.session_state.unsold_limit += 25
+                st.rerun()
 
 # ─────────────────────────────────────────────
 # 🔄 UPDATE DATA
