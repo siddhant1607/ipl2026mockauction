@@ -10,6 +10,7 @@ from sqlalchemy import text
 # CONFIG
 # ─────────────────────────────────────────────
 LOGO_DIR = os.path.join(os.path.dirname(__file__), "IPL LOGOS")
+DATA_DIR = os.path.join(os.path.dirname(__file__), "data")
 
 st.set_page_config(
     page_title="IPL 2026 Mock Auction Dashboard",
@@ -619,7 +620,12 @@ if USE_DATABASE:
             count = s.execute(text("SELECT COUNT(*) FROM app_state")).scalar()
             if count == 0:
                 st.info("🔄 Migrating local JSON files to your new Neon DB...")
-                files = {"squads": "squads.json", "lineups": "lineups.json", "master": "master.json", "mvp": "mvp.json"}
+                files = {
+                    "squads": os.path.join(DATA_DIR, "squads.json"), 
+                    "lineups": os.path.join(DATA_DIR, "lineups.json"), 
+                    "master": os.path.join(DATA_DIR, "master.json"), 
+                    "mvp": os.path.join(DATA_DIR, "mvp.json")
+                }
                 base = os.path.dirname(__file__)
                 for k, fname in files.items():
                     fpath = os.path.join(base, fname)
@@ -659,7 +665,7 @@ def load_mvp_points():
         return db_data
         
     try:
-        with open("mvp.json") as f:
+        with open(os.path.join(DATA_DIR, "mvp.json"), "r") as f:
             return json.load(f)
     except Exception:
         return []
@@ -673,7 +679,7 @@ def load_squads():
         return db_data
         
     try:
-        with open("squads.json") as f:
+        with open(os.path.join(DATA_DIR, "squads.json"), "r") as f:
             return json.load(f)
     except Exception:
         return {}
@@ -734,9 +740,9 @@ def load_lineups():
     if db_data is not None:
         return db_data
         
-    path = os.path.join(os.path.dirname(__file__), "lineups.json")
+    path = os.path.join(DATA_DIR, "lineups.json")
     if os.path.exists(path):
-        with open(path) as f:
+        with open(path, "r") as f:
             return json.load(f)
     return {}
 
@@ -745,7 +751,7 @@ def save_lineups(lineups: dict):
     set_app_state("lineups", lineups)
     
     # Still write to local file as immediate backup
-    path = os.path.join(os.path.dirname(__file__), "lineups.json")
+    path = os.path.join(DATA_DIR, "lineups.json")
     try:
         with open(path, "w") as f:
             json.dump(lineups, f, indent=2)
@@ -1458,16 +1464,15 @@ elif active_tab == "🔄 Update Data":
                 st.markdown("<div style='height:12px'></div>", unsafe_allow_html=True)
 
                 # ── Save button ──
-                base_dir = os.path.dirname(__file__)
                 if st.button("💾 Save & Update Dashboard", type="primary", key="save_update_btn"):
                     with st.spinner("Writing files…"):
                         # Save mvp.json
-                        with open(os.path.join(base_dir, "mvp.json"), "w") as f:
+                        with open(os.path.join(DATA_DIR, "mvp.json"), "w") as f:
                             json.dump(mvp_rows, f, indent=2)
                         set_app_state("mvp", mvp_rows)
 
                         # Also overwrite the local MVP.xlsx with the uploaded version
-                        with open(os.path.join(base_dir, "MVP.xlsx"), "wb") as f:
+                        with open(os.path.join(DATA_DIR, "MVP.xlsx"), "wb") as f:
                             f.write(file_bytes)
 
                     st.success(f"✅ Done! mvp.json ({len(mvp_rows)} players) updated.")
@@ -1513,15 +1518,7 @@ elif active_tab == "🔄 Update Data":
             except Exception as e:
                 st.error(f"❌ Failed to parse Excel: {e}")
                 st.exception(e)
-        else:
-            st.markdown("""
-            <div style="background: rgba(99,102,241,0.1); border-radius: 12px; padding: 24px;
-                        border: 1px solid rgba(99,102,241,0.3); text-align: center; margin-top: 8px;">
-                <div style="font-size:1.5rem;margin-bottom:8px">👆</div>
-                <div style="font-weight:600;color:#e2e8f0">Drag and drop MVP.xlsx directly into the uploader above</div>
-                <div style="font-size:0.8rem;color:#94a3b8;margin-top:4px">The standard file uploader handles drag actions automatically.</div>
-            </div>
-            """, unsafe_allow_html=True)
+            pass
 
 # ─────────────────────────────────────────────
 # 👥 EDIT SQUADS
@@ -1566,8 +1563,7 @@ elif active_tab == "👥 Edit Squads":
                         all_player_names.append(p)
                 
                 # Save to squads.json
-                base_dir = os.path.dirname(__file__)
-                with open(os.path.join(base_dir, "squads.json"), "w") as f:
+                with open(os.path.join(DATA_DIR, "squads.json"), "w") as f:
                     json.dump(parsed_squads, f, indent=4)
                 set_app_state("squads", parsed_squads)
                 
