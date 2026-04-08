@@ -125,7 +125,54 @@ html, body, [class*="css"] {
 .stTabs [aria-selected="true"] {
     background: linear-gradient(135deg, #1e40af, #1e3a8a) !important;
     color: #fff !important;
-    font-weight: 600;
+    font-weight: 600 !important;
+}
+
+/* ── Custom Navigation (Radio as Tabs) ── */
+div[data-testid="stRadio"] > div {
+    background: rgba(30,41,59,0.8);
+    border-radius: 12px;
+    padding: 4px;
+    gap: 4px;
+    border: 1px solid rgba(255,255,255,0.08);
+    backdrop-filter: blur(12px);
+    display: flex;
+    flex-wrap: wrap;
+}
+div[data-testid="stRadio"] label {
+    border-radius: 8px;
+    color: #94a3b8 !important;
+    font-weight: 500;
+    font-size: 0.88rem;
+    padding: 6px 14px;
+    transition: all 0.2s ease;
+    cursor: pointer;
+    border: none !important;
+    background: transparent !important;
+}
+div[data-testid="stRadio"] label:hover {
+    background: rgba(255,255,255,0.05) !important;
+    color: #fff !important;
+}
+/* Highlight selected tab */
+div[data-testid="stRadio"] label:has(input:checked) {
+    background: linear-gradient(135deg, #1e40af, #1e3a8a) !important;
+    color: #fff !important;
+    font-weight: 600 !important;
+    box-shadow: 0 4px 12px rgba(30,64,175,0.3) !important;
+}
+div[data-testid="stRadio"] label[data-selected="true"] {
+    background: linear-gradient(135deg, #1e40af, #1e3a8a) !important;
+    color: #fff !important;
+    font-weight: 600 !important;
+    box-shadow: 0 4px 12px rgba(30,64,175,0.3) !important;
+}
+/* Hide the radio circles and headers */
+div[data-testid="stRadio"] div[role="radiogroup"] > label > div:first-child {
+    display: none !important;
+}
+div[data-testid="stRadio"] label[data-testid="stWidgetLabel"] {
+    display: none !important;
 }
 
 /* ── Section headers ── */
@@ -813,9 +860,9 @@ with col_r2:
         st.rerun()
 
 # ─────────────────────────────────────────────
-# TABS
+# NAVIGATION (LAZY LOADING)
 # ─────────────────────────────────────────────
-tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8, tab9 = st.tabs([
+tab_options = [
     "🏆 Leaderboard",
     "📊 Players",
     "🏏 Teams",
@@ -825,12 +872,20 @@ tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8, tab9 = st.tabs([
     "🔄 Update Data",
     "👥 Edit Squads",
     "✏️ Edit Lineups",
-])
+]
+
+# Create the navigation menu (styled like tabs)
+active_tab = st.radio(
+    "Navigation",
+    options=tab_options,
+    horizontal=True,
+    label_visibility="collapsed"
+)
 
 # ─────────────────────────────────────────────
 # 🏆 LEADERBOARD
 # ─────────────────────────────────────────────
-with tab1:
+if active_tab == "🏆 Leaderboard":
     st.markdown("<div class='section-title'>🏆 Squad Points Standings</div>", unsafe_allow_html=True)
     st.markdown("<div class='section-sub'>Ranked by total ESPNCricinfo MVP points</div>", unsafe_allow_html=True)
 
@@ -886,8 +941,11 @@ with tab1:
 # ─────────────────────────────────────────────
 # 📊 PLAYERS
 # ─────────────────────────────────────────────
-with tab2:
+elif active_tab == "📊 Players":
     st.markdown("<div class='section-title'>📊 Player Performance</div>", unsafe_allow_html=True)
+    
+    # Get value from session state for lazy loading logic
+    classical_ui = st.session_state.get("classic_players", False)
 
     if not df.empty:
         top = df.sort_values(by="impact", ascending=False).iloc[0]
@@ -910,13 +968,11 @@ with tab2:
     else:
         st.info("No player data available yet. Upload MVP data to get started.")
 
-    col_s1, col_s2, col_s3 = st.columns([2, 1, 1])
+    col_s1, col_s2 = st.columns([2, 1])
     with col_s1:
         search = st.text_input("🔍 Search player", placeholder="Type a player name…")
     with col_s2:
         sort_by = st.selectbox("Sort by", ["Points (High to Low)", "Points (Low to High)", "Name (A-Z)", "Team (A-Z)", "Adjustment (High to Low)", "Adjustment (Low to High)"])
-    with col_s3:
-        classical_ui = st.checkbox("💾 Classical UI", value=False, help="Use standard dataframes for better performance")
 
     # ── Initial Sorting & Filter ──
     # Rank is always based on impact points across all players
@@ -947,9 +1003,9 @@ with tab2:
     display_list = filtered.head(st.session_state.player_limit)
 
     if classical_ui:
-        # ── Classical UI (Dataframe) ──
+        # ── Classical UI (Full Dataframe) ──
         st.dataframe(
-            filtered.head(st.session_state.player_limit)[["Rank", "player", "team", "impact", "offset"]],
+            filtered[["Rank", "player", "team", "impact", "offset"]],
             width="stretch",
             hide_index=True,
             column_config={
@@ -1001,15 +1057,18 @@ with tab2:
             </div>
             """, unsafe_allow_html=True)
 
-    if len(filtered) > st.session_state.player_limit:
-        if st.button(f"Load more ({len(filtered) - st.session_state.player_limit} remaining)", use_container_width=True):
-            st.session_state.player_limit += 25
-            st.rerun()
+        if len(filtered) > st.session_state.player_limit:
+            if st.button(f"Load more ({len(filtered) - st.session_state.player_limit} remaining)", use_container_width=True):
+                st.session_state.player_limit += 25
+                st.rerun()
+
+    st.markdown("<div style='height:12px'></div>", unsafe_allow_html=True)
+    st.checkbox("💾 Classical UI", value=classical_ui, key="classic_players", help="Use standard dataframes for better performance")
 
 # ─────────────────────────────────────────────
 # 🏏 TEAMS
 # ─────────────────────────────────────────────
-with tab3:
+elif active_tab == "🏏 Teams":
     st.markdown("<div class='section-title'>🏏 Team Breakdown</div>", unsafe_allow_html=True)
 
     team = st.selectbox("Select Team", list(SQUADS.keys()), format_func=lambda t: f"{t} — {TEAM_NAMES.get(t, t)}")
@@ -1075,7 +1134,7 @@ with tab3:
 # ─────────────────────────────────────────────
 # ⭐ PLAYING XIs
 # ─────────────────────────────────────────────
-with tab4:
+elif active_tab == "⭐ Playing XIs":
     st.markdown("<div class='section-title'>⭐ Playing XIs</div>", unsafe_allow_html=True)
     st.markdown("<div class='section-sub'>View selected playing lineups for each team</div>", unsafe_allow_html=True)
 
@@ -1132,7 +1191,7 @@ with tab4:
 # ─────────────────────────────────────────────
 # 📋 XI LEADERBOARD
 # ─────────────────────────────────────────────
-with tab5:
+elif active_tab == "📋 XI Leaderboard":
     st.markdown("<div class='section-title'>📋 Playing XI Leaderboard</div>", unsafe_allow_html=True)
     st.markdown("<div class='section-sub'>Team Standings based on playing lineups only</div>", unsafe_allow_html=True)
     lineups = load_lineups()
@@ -1194,19 +1253,20 @@ with tab5:
 # ─────────────────────────────────────────────
 # 🚫 UNSOLD
 # ─────────────────────────────────────────────
-with tab6:
+elif active_tab == "🚫 Unsold":
     st.markdown("<div class='section-title'>🚫 Unsold Players</div>", unsafe_allow_html=True)
     st.markdown("<div class='section-sub'>Players not acquired in the mock auction</div>", unsafe_allow_html=True)
 
+    # Get value from session state
+    classical_ui_unsold = st.session_state.get("classic_unsold", False)
+
     unsold_df = df[df["team"] == "Unsold"].copy()
     
-    col_u1, col_u2, col_u3 = st.columns([2, 1, 1])
+    col_u1, col_u2 = st.columns([2, 1])
     with col_u1:
         search_unsold = st.text_input("🔍 Search", placeholder="Filter unsold players…", key="unsold_search")
     with col_u2:
         sort_unsold = st.selectbox("Sort by", ["Points (High to Low)", "Points (Low to High)", "Name (A-Z)"], key="unsold_sort")
-    with col_u3:
-        classical_ui_unsold = st.checkbox("💾 Classical UI", value=False, key="unsold_classic", help="Use standard dataframes for better performance")
 
     if search_unsold:
         unsold_df = unsold_df[unsold_df["player"].str.contains(search_unsold, case=False, na=False, regex=False)]
@@ -1264,7 +1324,7 @@ with tab6:
                     </div>
                     <div class="player-card-info">
                         <div class="player-card-name">{name}</div>
-                        <div class="player-card-team" style="color: {c['accent']}">Unsold / Free Agent</div>
+                        <div class="player-card-team" style="color: {c['accent']}">Unsold</div>
                     </div>
                     <div class="player-card-metrics">
                         <div class="player-card-points" style="color: {c['accent']}">{pts:.1f}</div>
@@ -1272,15 +1332,13 @@ with tab6:
                 </div>
                 """, unsafe_allow_html=True)
 
-        if len(unsold_df) > st.session_state.unsold_limit:
-            if st.button(f"Load more ({len(unsold_df) - st.session_state.unsold_limit} remaining)", use_container_width=True, key="unsold_load_more"):
-                st.session_state.unsold_limit += 25
-                st.rerun()
+        st.markdown("<div style='height:12px'></div>", unsafe_allow_html=True)
+        st.checkbox("💾 Classical UI", value=classical_ui_unsold, key="classic_unsold", help="Use standard dataframes for better performance")
 
 # ─────────────────────────────────────────────
 # 🔄 UPDATE DATA
 # ─────────────────────────────────────────────
-with tab7:
+elif active_tab == "🔄 Update Data":
     st.markdown("<div class='section-title'>🔄 Update Data</div>", unsafe_allow_html=True)
     st.markdown("<div class='section-sub'>Upload a new MVP Excel sheet to regenerate mvp.json and master.json</div>", unsafe_allow_html=True)
 
@@ -1468,7 +1526,7 @@ with tab7:
 # ─────────────────────────────────────────────
 # 👥 EDIT SQUADS
 # ─────────────────────────────────────────────
-with tab8:
+elif active_tab == "👥 Edit Squads":
     st.markdown("<div class='section-title'>👥 Edit Squads</div>", unsafe_allow_html=True)
     st.markdown("<div class='section-sub'>Directly edit the squads.json file and add or remove players from teams</div>", unsafe_allow_html=True)
 
@@ -1535,7 +1593,7 @@ with tab8:
 # ─────────────────────────────────────────────
 # ✏️ EDIT LINEUPS
 # ─────────────────────────────────────────────
-with tab9:
+elif active_tab == "✏️ Edit Lineups":
     st.markdown("<div class='section-title'>✏️ Edit Playing Lineups</div>", unsafe_allow_html=True)
     st.markdown("<div class='section-sub'>Select players and set batting order for each team</div>", unsafe_allow_html=True)
 
