@@ -33,7 +33,7 @@ TEAM_COLORS = {
     "RCB":  {"bg": "#CC0000", "text": "#FFFF00", "accent": "#FBBF24"},  # dark red → use amber
     "RR":   {"bg": "#FF6699", "text": "#073763", "accent": "#F472B6"},
     "SRH":  {"bg": "#FF9900", "text": "#000000", "accent": "#FB923C"},
-    "Unsold": {"bg": "#ffffff22", "text": "#FFFFFF", "accent": "#FFFFFF"},
+    "Unsold": {"bg": "#FFFFFF", "text": "#FFFFFF", "accent": "#FFFFFF"},
 }
 
 TEAM_NAMES = {
@@ -1323,7 +1323,7 @@ elif active_tab == "🚫 Unsold":
                 )
                 
                 st.markdown(f"""
-                <div class="player-card" style="background: linear-gradient(135deg, {c['bg']}, {c['bg']}08); border-color: {c['accent']}33;">
+                <div class="player-card" style="background: linear-gradient(135deg, {c['bg']}25, {c['bg']}08); border-color: {c['accent']}33;">
                     <div class="player-card-logo-container">
                         <div class="player-card-rank">#{int(rank)}</div>
                         {logo_html}
