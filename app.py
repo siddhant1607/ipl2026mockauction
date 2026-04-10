@@ -33,7 +33,7 @@ TEAM_COLORS = {
     "RCB":  {"bg": "#CC0000", "text": "#FFFF00", "accent": "#FBBF24"},  # dark red → use amber
     "RR":   {"bg": "#FF6699", "text": "#073763", "accent": "#F472B6"},
     "SRH":  {"bg": "#FF9900", "text": "#000000", "accent": "#FB923C"},
-    "Unsold": {"bg": "#FFFFFF", "text": "#FFFFFF", "accent": "#FFFFFF"},
+    "UNSOLD": {"bg": "#FFFFFF", "text": "#FFFFFF", "accent": "#FFFFFF"},
 }
 
 TEAM_NAMES = {
@@ -47,6 +47,7 @@ TEAM_NAMES = {
     "RCB":  "Royal Challengers Bengaluru",
     "RR":   "Rajasthan Royals",
     "SRH":  "Sunrisers Hyderabad",
+    "UNSOLD": "Unsold",
 }
 
 
@@ -710,7 +711,7 @@ def load_data():
         offset = offsets.get(name, 0.0)
         adj_pts = raw_pts + offset
         
-        team = PLAYER_TO_TEAM.get(name.lower(), "Unsold")
+        team = PLAYER_TO_TEAM.get(name.lower(), "UNSOLD")
         master_rows.append({
             "player": name,
             "team": team,
@@ -723,7 +724,7 @@ def load_data():
     # Add any manual adjustments for players/entities not in the MVP list
     for name, offset in offsets.items():
         if name.lower() not in processed_names:
-            team = PLAYER_TO_TEAM.get(name.lower(), "Unsold")
+            team = PLAYER_TO_TEAM.get(name.lower(), "UNSOLD")
             master_rows.append({
                 "player": name,
                 "team": team,
@@ -815,8 +816,8 @@ def process_excel(file_bytes: bytes, squads: dict) -> tuple[list, list]:
     unmatched = []
     for row in mvp_rows:
         name = row["player"]
-        team = PLAYER_TO_TEAM.get(name.lower(), "Unsold")
-        if team == "Unsold":
+        team = PLAYER_TO_TEAM.get(name.lower(), "UNSOLD")
+        if team == "UNSOLD":
             unmatched.append(name)
 
     return mvp_rows, unmatched
@@ -896,7 +897,7 @@ if active_tab == "🏆 Leaderboard":
     st.markdown("<div class='section-sub'>Ranked by total ESPNCricinfo MVP points</div>", unsafe_allow_html=True)
 
     team_totals = (
-        df[df["team"] != "Unsold"]
+        df[df["team"] != "UNSOLD"]
         .groupby("team")["impact"]
         .sum()
         .sort_values(ascending=False)
@@ -1266,7 +1267,7 @@ elif active_tab == "🚫 Unsold":
     # Get value from session state
     classical_ui_unsold = st.session_state.get("classic_unsold", False)
 
-    unsold_df = df[df["team"] == "Unsold"].copy()
+    unsold_df = df[df["team"] == "UNSOLD"].copy()
     
     col_u1, col_u2 = st.columns([2, 1])
     with col_u1:
@@ -1314,7 +1315,7 @@ elif active_tab == "🚫 Unsold":
                 rank = row["Rank"]
                 
                 # Use UNSOLD logo and white accent
-                c = TEAM_COLORS.get("Unsold", {"bg": "#1e293b", "text": "#ffffff", "accent": "#ffffff"})
+                c = TEAM_COLORS.get("UNSOLD", {"bg": "#1e293b", "text": "#ffffff", "accent": "#ffffff"})
                 logo_b64 = get_logo_b64("UNSOLD")
                 logo_html = (
                     f'<img class="player-card-logo" src="data:image/png;base64,{logo_b64}" />'
@@ -1330,7 +1331,7 @@ elif active_tab == "🚫 Unsold":
                     </div>
                     <div class="player-card-info">
                         <div class="player-card-name">{name}</div>
-                        <div class="player-card-team" style="color: {c['accent']}">Unsold</div>
+                        <div class="player-card-team" style="color: {c['accent']}">{TEAM_NAMES.get("UNSOLD", "Unsold")}</div>
                     </div>
                     <div class="player-card-metrics">
                         <div class="player-card-points" style="color: {c['accent']}">{pts:.1f}</div>
