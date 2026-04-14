@@ -83,7 +83,7 @@ All administrative tabs are protected by an `admin_password`. To configure your 
     *   Save it as `MVP.xlsx` and upload it to the dashboard. The app handles the rest—no manual scripts required!
 
 3.  **Persistence Sync**: 
-    - **Neon Mode**: The app automatically handles saving every change to your cloud database. To keep your GitHub repository in sync, you can occasionally download the JSON from the dashboard (using the **📥 Download** buttons) and replace your local `squads.json`, `lineups.json`, `mvp.json`, and `master.json` files.
+    - **Neon Mode**: The app automatically handles saving every change to your cloud database. To keep your GitHub repository in sync, you can occasionally download the JSON from the dashboard (using the **📥 Download** buttons) and replace your local `squads.json`, `lineups.json`, and `mvp.json` files.
     - **GitHub Only Mode**: Since the Streamlit server resets periodically, you MUST manually download the JSON files from the dashboard and push them back into your GitHub repository to prevent data loss.
 
 ![Syncing Data back to GitHub](assets/img2.png)

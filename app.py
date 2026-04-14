@@ -633,7 +633,6 @@ def init_connection():
                 files = {
                     "squads": os.path.join(DATA_DIR, "squads.json"), 
                     "lineups": os.path.join(DATA_DIR, "lineups.json"), 
-                    "master": os.path.join(DATA_DIR, "master.json"), 
                     "mvp": os.path.join(DATA_DIR, "mvp.json")
                 }
                 base = os.path.dirname(__file__)
@@ -1364,7 +1363,7 @@ elif active_tab == "🚫 Unsold":
 # ─────────────────────────────────────────────
 elif active_tab == "🔄 Update Data":
     st.markdown("<div class='section-title'>🔄 Update Data</div>", unsafe_allow_html=True)
-    st.markdown("<div class='section-sub'>Upload a new MVP Excel sheet to regenerate mvp.json and master.json</div>", unsafe_allow_html=True)
+    st.markdown("<div class='section-sub'>Upload a new MVP Excel sheet to update the player points database</div>", unsafe_allow_html=True)
 
     # ── Password gate ──
     upd_pwd = st.text_input("🔐 Enter Admin password", type="password", key="update_pwd")
@@ -1378,7 +1377,7 @@ elif active_tab == "🔄 Update Data":
                 1. Enter the admin password above<br>
                 2. Upload your updated <code>MVP.xlsx</code> file<br>
                 3. Preview the parsed data<br>
-                4. Click <b>Save & Update</b> — mvp.json and master.json are regenerated instantly
+                4. Click <b>Save & Update</b> — player points are updated instantly
             </div>
         </div>
         """, unsafe_allow_html=True)
@@ -1504,25 +1503,6 @@ elif active_tab == "🔄 Update Data":
                 st.markdown("<div class='section-title' style='font-size:1.1rem;margin-top:24px'>📥 Download Data</div>", unsafe_allow_html=True)
                 dl_col1, dl_col2 = st.columns(2)
                 with dl_col1:
-                    # Construct a temporary master list for download purposes
-                    current_master = []
-                    PLAYER_TO_TEAM_DL = {p.lower(): t for t, plist in SQUADS.items() for p in plist}
-                    for row in mvp_rows:
-                        name = row["player"]
-                        current_master.append({
-                            "player": name, 
-                            "team": PLAYER_TO_TEAM_DL.get(name.lower(), "Unsold"), 
-                            "impact": row["impact"]
-                        })
-                    
-                    st.download_button(
-                        label="📥 Download master.json (Live)",
-                        data=json.dumps(current_master, indent=2),
-                        file_name="master.json",
-                        mime="application/json",
-                        key="dl_master_btn"
-                    )
-                with dl_col2:
                     st.download_button(
                         label="📥 Download mvp.json",
                         data=json.dumps(mvp_rows, indent=2),
@@ -1530,6 +1510,9 @@ elif active_tab == "🔄 Update Data":
                         mime="application/json",
                         key="dl_mvp_btn"
                     )
+                with dl_col2:
+                    # You could add another download button here if needed in the future
+                    pass
 
             except KeyError as e:
                 st.error(f"❌ Column not found in Excel: {e}\n\nMake sure the sheet has **'Player'** and **'Total Impact'** columns.")
