@@ -5,6 +5,7 @@ import os
 import base64
 import io
 from sqlalchemy import text
+from sqlalchemy.pool import NullPool
 
 # ─────────────────────────────────────────────
 # CONFIG
@@ -609,7 +610,12 @@ code {
 USE_DATABASE = "neon_url" in st.secrets
 
 if USE_DATABASE:
-    conn = st.connection("neon", type="sql", url=st.secrets["neon_url"])
+    conn = st.connection(
+        "neon", 
+        type="sql", 
+        url=st.secrets["neon_url"],
+        poolclass=NullPool
+    )
     try:
         with conn.session as s:
             s.execute(text("""
