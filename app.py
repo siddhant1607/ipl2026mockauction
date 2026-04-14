@@ -607,17 +607,21 @@ code {
 # ─────────────────────────────────────────────
 # DATABASE CONFIG & MIGRATION
 # ─────────────────────────────────────────────
-USE_DATABASE = "neon_url" in st.secrets
-
-if USE_DATABASE:
-    conn = st.connection(
+@st.cache_resource
+def init_connection():
+    if "neon_url" not in st.secrets:
+        return None
+    
+    c = st.connection(
         "neon", 
         type="sql", 
         url=st.secrets["neon_url"],
         poolclass=NullPool
     )
+    
+    # Run migration/sync check ONLY ONCE during app startup
     try:
-        with conn.session as s:
+        with c.session as s:
             s.execute(text("""
                 CREATE TABLE IF NOT EXISTS app_state (
                     key VARCHAR(50) PRIMARY KEY,
@@ -626,7 +630,6 @@ if USE_DATABASE:
             """))
             count = s.execute(text("SELECT COUNT(*) FROM app_state")).scalar()
             if count == 0:
-                st.info("🔄 Migrating local JSON files to your new Neon DB...")
                 files = {
                     "squads": os.path.join(DATA_DIR, "squads.json"), 
                     "lineups": os.path.join(DATA_DIR, "lineups.json"), 
@@ -644,7 +647,12 @@ if USE_DATABASE:
             else:
                 s.commit()
     except Exception as e:
-        st.error(f"Failed to synchronize with Neon DB: {e}")
+        # We don't want to crash the whole app if DB is briefly unavailable
+        pass
+    return c
+
+conn = init_connection()
+USE_DATABASE = conn is not None
 
 def set_app_state(key: str, data):
     if USE_DATABASE:
@@ -664,7 +672,7 @@ def get_app_state(key: str):
     return None
 
 
-@st.cache_data
+@st.cache_data(ttl=300)
 def load_mvp_points():
     """Load player points list from database or mvp.json."""
     db_data = get_app_state("mvp")
@@ -678,7 +686,7 @@ def load_mvp_points():
         return []
 
 
-@st.cache_data
+@st.cache_data(ttl=300)
 def load_squads():
     """Load team rosters from database or squads.json."""
     db_data = get_app_state("squads")
@@ -742,6 +750,7 @@ def load_data():
     return pd.DataFrame(master_rows)
 
 
+@st.cache_data(ttl=300)
 def load_lineups():
     db_data = get_app_state("lineups")
     if db_data is not None:
@@ -756,6 +765,8 @@ def load_lineups():
 
 def save_lineups(lineups: dict):
     set_app_state("lineups", lineups)
+    # Bust the cache so the next read picks up changes
+    load_lineups.clear()
     
     # Still write to local file as immediate backup
     path = os.path.join(DATA_DIR, "lineups.json")
