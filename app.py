@@ -722,30 +722,33 @@ def _fetch_all_db() -> dict:
 @st.cache_data(ttl=_TTL_MVP_SQUADS, show_spinner=False)
 def load_mvp_points() -> list:
     """
-    File-first: reads local mvp.json (zero DB cost on every normal load).
-    Falls back to DB only if the local file is absent.
+    DB-first: Neon is the single source of truth (Mode B).
+    Falls back to local mvp.json only for first-run bootstrap before DB is seeded.
     """
+    db_data = _fetch_all_db().get("mvp")
+    if db_data is not None:
+        return db_data
+    # Fallback: local file (only used on very first run before DB is seeded)
     data = _read_file("mvp.json")
-    if data is not None:
-        return data
-    return _fetch_all_db().get("mvp", [])
+    return data if data is not None else []
 
 @st.cache_data(ttl=_TTL_MVP_SQUADS, show_spinner=False)
 def load_squads() -> dict:
     """
-    File-first: reads local squads.json (zero DB cost on every normal load).
-    Falls back to DB only if the local file is absent.
+    DB-first: Neon is the single source of truth (Mode B).
+    Falls back to local squads.json only for first-run bootstrap before DB is seeded.
     """
+    db_data = _fetch_all_db().get("squads")
+    if db_data is not None:
+        return db_data
     data = _read_file("squads.json")
-    if data is not None:
-        return data
-    return _fetch_all_db().get("squads", {})
+    return data if data is not None else {}
 
 @st.cache_data(ttl=_TTL_LINEUPS, show_spinner=False)
 def load_lineups() -> dict:
     """
-    Lineups are admin-written, so DB is authoritative here.
-    Falls back to local file if DB is unavailable.
+    Lineups are admin-written — DB is always authoritative.
+    Falls back to local file only if DB is unavailable.
     """
     db_all = _fetch_all_db()
     if "lineups" in db_all:
