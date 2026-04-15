@@ -4,6 +4,7 @@ import json
 import os
 import base64
 import io
+import time as _time
 from sqlalchemy import text
 from sqlalchemy.pool import NullPool
 
@@ -607,6 +608,11 @@ code {
 # ─────────────────────────────────────────────
 # DATABASE CONFIG & MIGRATION
 # ─────────────────────────────────────────────
+
+# TTL constants — single source of truth
+_TTL_MVP_SQUADS = 4 * 60 * 60   # 4 hours  (updates 1-2×/day)
+_TTL_LINEUPS    = 1 * 60 * 60   # 1 hour   (admin-written, needs to propagate)
+
 @st.cache_resource
 def init_connection():
     if "neon_url" not in st.secrets:
@@ -653,127 +659,183 @@ def init_connection():
 conn = init_connection()
 USE_DATABASE = conn is not None
 
-def set_app_state(key: str, data):
-    if USE_DATABASE:
+# ── Low-level DB write (uncached — writes should always hit DB) ───────────
+def _set_db(key: str, data) -> bool:
+    """Write a single key to app_state. Always goes to DB — never cached."""
+    if not USE_DATABASE:
+        return False
+    try:
         with conn.session as s:
-            s.execute(text("INSERT INTO app_state (key, data) VALUES (:k, CAST(:dat AS JSONB)) ON CONFLICT (key) DO UPDATE SET data = EXCLUDED.data;"), {"k": key, "dat": json.dumps(data)})
+            s.execute(
+                text("""
+                    INSERT INTO app_state (key, data)
+                    VALUES (:k, CAST(:dat AS JSONB))
+                    ON CONFLICT (key) DO UPDATE SET data = EXCLUDED.data
+                """),
+                {"k": key, "dat": json.dumps(data)},
+            )
             s.commit()
+        return True
+    except Exception:
+        return False
 
-def get_app_state(key: str):
-    if USE_DATABASE:
+def _write_file(name: str, data) -> None:
+    """Write data to a local JSON file (best-effort — may fail on ephemeral FS)."""
+    path = os.path.join(DATA_DIR, name)
+    try:
+        with open(path, "w") as f:
+            json.dump(data, f, indent=2)
+    except OSError:
+        pass
+
+def _read_file(name: str):
+    """Read from a committed local JSON file — zero DB cost."""
+    path = os.path.join(DATA_DIR, name)
+    if os.path.exists(path):
         try:
-            with conn.session as s:
-                res = s.execute(text("SELECT data FROM app_state WHERE key = :k"), {"k": key}).fetchone()
-                if res and res[0]:
-                    return res[0]
+            with open(path, "r") as f:
+                return json.load(f)
         except Exception:
             return None
     return None
 
-
-@st.cache_data(ttl=300)
-def load_mvp_points():
-    """Load player points list from database or mvp.json."""
-    db_data = get_app_state("mvp")
-    if db_data is not None:
-        return db_data
-        
+# ── Batch DB fetch — ONE round-trip for ALL keys ──────────────────────────
+@st.cache_data(ttl=_TTL_MVP_SQUADS, show_spinner=False)
+def _fetch_all_db() -> dict:
+    """
+    Fetches ALL app_state rows in a single SQL query.
+    Cached for _TTL_MVP_SQUADS (4h). The DB wakes at most once per TTL window.
+    Previously, three separate get_app_state() calls opened three connections.
+    """
+    if not USE_DATABASE:
+        return {}
     try:
-        with open(os.path.join(DATA_DIR, "mvp.json"), "r") as f:
-            return json.load(f)
-    except Exception:
-        return []
-
-
-@st.cache_data(ttl=300)
-def load_squads():
-    """Load team rosters from database or squads.json."""
-    db_data = get_app_state("squads")
-    if db_data is not None:
-        return db_data
-        
-    try:
-        with open(os.path.join(DATA_DIR, "squads.json"), "r") as f:
-            return json.load(f)
+        with conn.session as s:
+            rows = s.execute(
+                text("SELECT key, data FROM app_state WHERE key IN ('mvp', 'squads', 'lineups')")
+            ).fetchall()
+        return {r[0]: r[1] for r in rows}
     except Exception:
         return {}
 
+# ── Public read API ───────────────────────────────────────────────────────
+@st.cache_data(ttl=_TTL_MVP_SQUADS, show_spinner=False)
+def load_mvp_points() -> list:
+    """
+    File-first: reads local mvp.json (zero DB cost on every normal load).
+    Falls back to DB only if the local file is absent.
+    """
+    data = _read_file("mvp.json")
+    if data is not None:
+        return data
+    return _fetch_all_db().get("mvp", [])
 
-def load_data():
-    """Construct the master DataFrame dynamically by merging MVP points and Squads."""
-    mvp_list = load_mvp_points()
-    full_squads = load_squads()
-    
-    # Extract offsets if they exist
-    offsets = full_squads.get("__offsets__", {})
-    # Filter out metaladata keys for squad mapping
-    squads_only = {k: v for k, v in full_squads.items() if k != "__offsets__"}
-    
-    # Pre-map players to teams for fast lookup
-    PLAYER_TO_TEAM = {
+@st.cache_data(ttl=_TTL_MVP_SQUADS, show_spinner=False)
+def load_squads() -> dict:
+    """
+    File-first: reads local squads.json (zero DB cost on every normal load).
+    Falls back to DB only if the local file is absent.
+    """
+    data = _read_file("squads.json")
+    if data is not None:
+        return data
+    return _fetch_all_db().get("squads", {})
+
+@st.cache_data(ttl=_TTL_LINEUPS, show_spinner=False)
+def load_lineups() -> dict:
+    """
+    Lineups are admin-written, so DB is authoritative here.
+    Falls back to local file if DB is unavailable.
+    """
+    db_all = _fetch_all_db()
+    if "lineups" in db_all:
+        return db_all["lineups"]
+    return _read_file("lineups.json") or {}
+
+def _build_dataframe(mvp_list: list, squads: dict, offsets: dict) -> pd.DataFrame:
+    """Pure function — builds the master DataFrame. No IO."""
+    player_to_team = {
         p.lower(): team
-        for team, players in squads_only.items()
+        for team, players in squads.items()
         for p in players
     }
-    
-    processed_names = set()
-    master_rows = []
+    processed = set()
+    rows = []
     for item in mvp_list:
         name = item.get("player", "")
         raw_pts = item.get("impact", 0.0)
         offset = offsets.get(name, 0.0)
-        adj_pts = raw_pts + offset
-        
-        team = PLAYER_TO_TEAM.get(name.lower(), "UNSOLD")
-        master_rows.append({
+        rows.append({
             "player": name,
-            "team": team,
-            "impact": adj_pts,
+            "team": player_to_team.get(name.lower(), "UNSOLD"),
+            "impact": raw_pts + offset,
             "raw_impact": raw_pts,
-            "offset": offset
+            "offset": offset,
         })
-        processed_names.add(name.lower())
-        
-    # Add any manual adjustments for players/entities not in the MVP list
+        processed.add(name.lower())
+    # Add offset-only entries (players not in MVP list but with manual adjustments)
     for name, offset in offsets.items():
-        if name.lower() not in processed_names:
-            team = PLAYER_TO_TEAM.get(name.lower(), "UNSOLD")
-            master_rows.append({
+        if name.lower() not in processed:
+            rows.append({
                 "player": name,
-                "team": team,
+                "team": player_to_team.get(name.lower(), "UNSOLD"),
                 "impact": offset,
                 "raw_impact": 0.0,
-                "offset": offset
+                "offset": offset,
             })
-    
-    return pd.DataFrame(master_rows)
+    return pd.DataFrame(rows)
 
+def get_session_data() -> tuple:
+    """
+    Returns (df, squads_dict, offsets_dict, full_squads_dict).
+    Pinned to session_state — survives tab switches without recomputing.
+    Recomputed only when caches are explicitly cleared (admin write or Refresh).
+    Replaces the old module-scope: FULL_SQUADS = load_squads(); df = load_data()
+    """
+    if "session_df" not in st.session_state:
+        full = load_squads()
+        offsets = full.get("__offsets__", {})
+        squads = {k: v for k, v in full.items() if k != "__offsets__"}
+        df = _build_dataframe(load_mvp_points(), squads, offsets)
+        st.session_state["session_df"]       = df
+        st.session_state["session_squads"]   = squads
+        st.session_state["session_offsets"]  = offsets
+        st.session_state["session_full"]     = full
+    return (
+        st.session_state["session_df"],
+        st.session_state["session_squads"],
+        st.session_state["session_offsets"],
+        st.session_state["session_full"],
+    )
 
-@st.cache_data(ttl=300)
-def load_lineups():
-    db_data = get_app_state("lineups")
-    if db_data is not None:
-        return db_data
-        
-    path = os.path.join(DATA_DIR, "lineups.json")
-    if os.path.exists(path):
-        with open(path, "r") as f:
-            return json.load(f)
-    return {}
+def _clear_session_cache():
+    """Evict the derived session variables so get_session_data() recomputes on next call."""
+    for k in ("session_df", "session_squads", "session_offsets", "session_full"):
+        st.session_state.pop(k, None)
 
+# ── Public write API ──────────────────────────────────────────────────────
+def save_mvp(data: list):
+    """Save MVP data; selectively busts only the MVP/batch caches."""
+    _set_db("mvp", data)
+    _write_file("mvp.json", data)
+    load_mvp_points.clear()
+    _fetch_all_db.clear()
+    _clear_session_cache()
+
+def save_squads(data: dict):
+    """Save squads data; selectively busts only the squads/batch caches."""
+    _set_db("squads", data)
+    _write_file("squads.json", data)
+    load_squads.clear()
+    _fetch_all_db.clear()
+    _clear_session_cache()
 
 def save_lineups(lineups: dict):
-    set_app_state("lineups", lineups)
-    # Bust the cache so the next read picks up changes
+    """Save lineups; busts lineup and batch caches."""
+    _set_db("lineups", lineups)
+    _write_file("lineups.json", lineups)
     load_lineups.clear()
-    
-    # Still write to local file as immediate backup
-    path = os.path.join(DATA_DIR, "lineups.json")
-    try:
-        with open(path, "w") as f:
-            json.dump(lineups, f, indent=2)
-    except Exception:
-        pass
+    _fetch_all_db.clear()
 
 
 def clear_lineup_callback(team_name, players):
@@ -839,10 +901,8 @@ def process_excel(file_bytes: bytes, squads: dict) -> tuple[list, list]:
     return mvp_rows, unmatched
 
 
-FULL_SQUADS = load_squads()
-SQUADS = {k: v for k, v in FULL_SQUADS.items() if k != "__offsets__"}
-OFFSETS = FULL_SQUADS.get("__offsets__", {})
-df = load_data()
+# ── Resolve session data (once per session, not once per rerun) ───────────
+df, SQUADS, OFFSETS, FULL_SQUADS = get_session_data()
 
 # ─────────────────────────────────────────────
 # HEADER
@@ -860,6 +920,18 @@ with col_h2:
     </div>
     """, unsafe_allow_html=True)
 
+# ── Refresh cooldown: prevents users from hammering the DB ──
+_REFRESH_COOLDOWN_SECS = 300  # 5 minutes — aligns with the minimum cache TTL
+
+if "last_refresh_ts" not in st.session_state:
+    st.session_state["last_refresh_ts"] = 0.0  # never refreshed this session
+
+_now = _time.time()
+_secs_since = _now - st.session_state["last_refresh_ts"]
+_on_cooldown = _secs_since < _REFRESH_COOLDOWN_SECS
+_mins_ago = int(_secs_since // 60)
+_secs_left = int(_REFRESH_COOLDOWN_SECS - _secs_since)
+
 col_r1, col_r2 = st.columns([1, 8])
 with col_r2:
     st.markdown("""
@@ -876,10 +948,41 @@ with col_r2:
         background: linear-gradient(135deg, #2563eb, #1e40af);
         color: white;
     }
+    div.stButton > button:first-child:disabled {
+        background: rgba(30,41,59,0.5) !important;
+        color: #64748b !important;
+        cursor: not-allowed !important;
+        box-shadow: none !important;
+    }
     </style>
     """, unsafe_allow_html=True)
-    if st.button("🔄 Refresh Data"):
-        st.cache_data.clear()
+
+    btn_col, status_col = st.columns([2, 6])
+    with btn_col:
+        btn_label = "🔄 Refresh Data" if not _on_cooldown else "⏳ Refresh Data"
+        clicked = st.button(btn_label, disabled=_on_cooldown, key="refresh_btn")
+    with status_col:
+        if _on_cooldown:
+            st.markdown(
+                f"<span style='color:#64748b;font-size:0.82rem;line-height:2.5'>" 
+                f"Data is current — refreshes in {_secs_left}s</span>",
+                unsafe_allow_html=True
+            )
+        elif st.session_state["last_refresh_ts"] > 0:
+            st.markdown(
+                f"<span style='color:#64748b;font-size:0.82rem;line-height:2.5'>" 
+                f"Last refreshed {_mins_ago}m ago</span>",
+                unsafe_allow_html=True
+            )
+
+    if clicked:
+        # Surgical cache clear — only data caches, not logos or static assets
+        load_mvp_points.clear()
+        load_squads.clear()
+        load_lineups.clear()
+        _fetch_all_db.clear()
+        _clear_session_cache()
+        st.session_state["last_refresh_ts"] = _time.time()
         st.rerun()
 
 # ─────────────────────────────────────────────
@@ -1483,20 +1586,18 @@ elif active_tab == "🔄 Update Data":
                 # ── Save button ──
                 if st.button("💾 Save & Update Dashboard", type="primary", key="save_update_btn"):
                     with st.spinner("Writing files…"):
-                        # Save mvp.json
-                        with open(os.path.join(DATA_DIR, "mvp.json"), "w") as f:
-                            json.dump(mvp_rows, f, indent=2)
-                        set_app_state("mvp", mvp_rows)
+                        # save_mvp() writes to DB + local file + busts caches selectively
+                        save_mvp(mvp_rows)
 
                         # Also overwrite the local MVP.xlsx with the uploaded version
-                        with open(os.path.join(DATA_DIR, "MVP.xlsx"), "wb") as f:
-                            f.write(file_bytes)
+                        try:
+                            with open(os.path.join(DATA_DIR, "MVP.xlsx"), "wb") as f:
+                                f.write(file_bytes)
+                        except OSError:
+                            pass
 
                     st.success(f"✅ Done! mvp.json ({len(mvp_rows)} players) updated.")
                     st.info("The dashboard now uses real-time merging of these points with your squads.")
-                    
-                    # Clear cache so next rerun picks up new data
-                    st.cache_data.clear()
                     st.rerun()
 
                 # ── Download buttons ──
@@ -1563,14 +1664,11 @@ elif active_tab == "👥 Edit Squads":
                             raise ValueError(f"Duplicate player: '{p}' appears in multiple squads.")
                         all_player_names.append(p)
                 
-                # Save to squads.json
-                with open(os.path.join(DATA_DIR, "squads.json"), "w") as f:
-                    json.dump(parsed_squads, f, indent=4)
-                set_app_state("squads", parsed_squads)
+                # save_squads() writes to DB + local file + busts caches selectively
+                save_squads(parsed_squads)
                 
                 st.success("✅ Squads updated successfully!")
-                st.info("Click **🔄 Refresh Data** at the top to reload the dashboard with updated squads.")
-                st.cache_data.clear()
+                st.rerun()
             
             except json.JSONDecodeError as e:
                 st.error(f"❌ Invalid JSON format: {e}")
